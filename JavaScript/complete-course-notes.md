@@ -804,3 +804,206 @@ while (rep <= 10) {
 This course is a complete JavaScript course, so it is lengthy.
 
 `Section Roadmap` tells you which part is essential, and which one is not.
+
+## Section 5: Developer Skills & Editor Setup
+
+#### 55. Section Intro
+
+Take a break; How to think as a developer and how to debug code; How to set up a professional develop environment in your computer.
+
+#### 57. Setting up Prettier and VS Code
+
+VS Code editor
+
+###### Extension
+
+`Prettier`: [code formatter](https://prettier.io/), assumes how code should be like
+
+preferences -> settings -> search `default formatter` -> select `Prettier` -> search `format on save` -> select
+
+`.prettierrc`: change [formatter configs](https://prettier.io/docs/configuration) according to your coding style
+
+```json
+{
+  "singleQuote": true,
+  "arrowParens": "avoid"
+}
+```
+
+`TODO Highlights`:
+
+Code -> preference -> settings -> open settings (JSON) -> "todohighlight.isEnable": true
+
+`Live Server` (will be introduced in next lecture):
+
+Click `Go live` button below.
+
+###### Snippets
+
+Code -> Preferences -> Configure Snippets -> New Global Snippets File
+
+```json
+{
+  // Place your global snippets here. Each snippet is defined under a snippet name and has a scope, prefix, body and
+  // description. Add comma separated ids of the languages where the snippet is applicable in the scope field. If scope
+  // is left empty or omitted, the snippet gets applied to all languages. The prefix is what is
+  // used to trigger the snippet and the body will be expanded and inserted. Possible variables are:
+  // $1, $2 for tab stops, $0 for the final cursor position, and ${1:label}, ${2:another} for placeholders.
+  // Placeholders with the same ids are connected.
+  // Example:
+  "Print to console": {
+    "scope": "javascript,typescript",
+    "prefix": "cl",
+    "body": ["console.log();"],
+    "description": "Log output to console"
+  }
+}
+```
+
+#### 58. Installing Node.js and Setting Up a Dev Environment
+
+To avoid reload web broswer during development, use `Live Server` instead.
+
+Using Live Server NPM Package in [Node.js](https://nodejs.org/en):
+
+Node.js is a way to run JavaScript outside broswer, and some development tools.
+
+Terminal -> New Terminal
+
+```bash
+node -v
+sudo npm install live-server -g
+
+# This will open a broswer and show index.html
+live-server
+```
+
+#### 59. Learning How to Code
+
+Set a specific, measureable, realistic and time-based goal.
+
+Imagine a big project you want to be able to build.
+
+Always type the code, and use it yourself.
+
+Do not care too much about writing a clean code or efficient code.
+
+#### 60. How to Think like a Developer: Become a Problem Solver!
+
+Example:
+
+Find a problem to solve:
+
+Stay calm and slow down, do not jump into a problem without thinking:
+
+Ask the right questions to get a clear picture of the problem.
+
+Devide and conquer: break a big problem into smaller sub-problems
+
+Write pseudo-code before writing the actual code.
+
+#### 61. Using Google, StackOverflow and MDN
+
+[StackOverflow](https://stackoverflow.com/questions)
+
+[MDN Web Docs](https://developer.mozilla.org/en-US/)
+
+```javascript
+///////////////////////////////////////
+// Using Google, StackOverflow and MDN
+
+// PROBLEM 1:
+// We work for a company building a smart home thermometer. Our most recent task is this: "Given an array of temperatures of one day, calculate the temperature amplitude. Keep in mind that sometimes there might be a sensor error."
+
+const temperatures = [3, -2, -6, -1, "error", 9, 13, 17, 15, 14, 9, 5];
+
+// 1) Understanding the problem
+// - What is temp amplitude? Answer: difference between highest and lowest temp
+// - How to compute max and min temperatures?
+// - What's a sensor error? And what do do?
+
+// 2) Breaking up into sub-problems
+// - How to ignore errors?
+// - Find max value in temp array
+// - Find min value in temp array
+// - Subtract min from max (amplitude) and return it
+
+const calcTempAmplitude = function (temps) {
+  let max = temps[0];
+  let min = temps[0];
+
+  for (let i = 0; i < temps.length; i++) {
+    const curTemp = temps[i];
+    if (typeof curTemp !== "number") continue;
+
+    if (curTemp > max) max = curTemp;
+    if (curTemp < min) min = curTemp;
+  }
+  console.log(max, min);
+  return max - min;
+};
+const amplitude = calcTempAmplitude(temperatures);
+console.log(amplitude);
+```
+
+#### 62. Debugging (Fixing Errors)
+
+Steps:
+
+Identify Bugs:
+
+Find Bugs: Developer console (simple code); Debugger (complex code)
+
+Fix Bugs:
+
+Prevent Bugs: Writing tests using testing software
+
+#### 63. Debugging with Console and Breakpoints
+
+```javascript
+console.log(measurement);
+console.warn(measurement.type);
+console.error(measurement.unit);
+
+console.table(measurement);
+```
+
+###### Debugger in Google Chrome
+
+Mark debug line by yourself: Sources -> breakpoints
+
+###### Debugger statement in JavaScript
+
+`debugger` statement
+
+```javascript
+const printForecast = function (tempArrays) {
+  let forecastStr = "";
+  for (let rep = 0; rep <= tempArrays.length - 1; rep++) {
+    // for-loop creates a new block scope each iteration,
+    // so const is not re-declared in the same scope
+    const subForecastStr = `... ${tempArrays[rep]}C in ${rep + 1} days `;
+
+    forecastStr += subForecastStr;
+  }
+
+  console.log(forecastStr);
+};
+
+const testData1 = [17, 21, 23];
+const testData2 = [12, 5, -5, 0, 4];
+
+printForecast(testData1);
+printForecast(testData2);
+```
+
+#### 65. The Rise of AI Tools (ChatGPT, Copilot, Cursor AI, etc.)
+
+The AI tools are powered by LLM.
+
+GitHub Copilot and Cursor can use code-aware autocomplete features, and chat with you codebase.
+
+- Make sure you 100% understand the problem. Ask questions to get a clear picture.
+- Choose AI and give it a very specific prompt and enough context (language, style, etc.)
+- Let AI generate the solution as code.
+- Review and test the output solution. Make sure you introduce no bugs in your app.
