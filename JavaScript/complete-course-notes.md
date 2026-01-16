@@ -838,6 +838,14 @@ Code -> preference -> settings -> open settings (JSON) -> "todohighlight.isEnabl
 
 Click `Go live` button below.
 
+###### Auto Close Tag
+
+Automatically add HTML/XML close tag, same as Visual Studio IDE or Sublime Text does. (Not necessary need now)
+
+###### Auto Rename Tag
+
+- When you rename one HTML/XML tag, automatically rename the paired HTML/XML tag
+
 ###### Snippets
 
 Code -> Preferences -> Configure Snippets -> New Global Snippets File
@@ -1007,3 +1015,309 @@ GitHub Copilot and Cursor can use code-aware autocomplete features, and chat wit
 - Choose AI and give it a very specific prompt and enough context (language, style, etc.)
 - Let AI generate the solution as code.
 - Review and test the output solution. Make sure you introduce no bugs in your app.
+
+## Section 6 [optional] HTML & CSS Crash Course
+
+#### 68. Basic HTML Structure and Elements
+
+`index.html`: should always be the main file of any project.
+
+`<html></html>`: should be the root element
+
+```html
+<!-- This tells the browser that this is an HTML document -->
+<html>
+  <!-- The head section contains information ABOUT the page -->
+  <head>
+    <!-- The title appears in the browser tab -->
+    <title>Learning HTML & CSS</title>
+  </head>
+
+  <!-- The body section contains everything the user sees on the page -->
+  <body>
+    <!-- h1 is the largest heading, usually used for the main title -->
+    <h1>JavaScript is fun, but so is HTML & CSS!</h1>
+
+    <!-- p stands for paragraph -->
+    <p>You can learn JavaScript without HTML and CSS. But they are useful</p>
+
+    <!-- h6 is the smallest heading -->
+    <h6>Another Heading</h6>
+
+    <!-- Another paragraph of text -->
+    <p>Just another paragraph</p>
+  </body>
+</html>
+```
+
+#### 69. Attributes, Classes, and IDs
+
+One element can be `nested` into another one, and is called `child element`.
+
+`inline elements`
+
+`block elements`
+
+`openning tag`:
+
+`closing tag`:
+
+`Attribute`: is used to describe elements
+
+```html
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+    <title>Learning HTML & CSS</title>
+  </head>
+
+  <body>
+    <h1>JavaScript is fun, but so is HTML & CSS!</h1>
+    <p class="first">
+      You can learn JavaScript without HTML and CSS. But they are useful, You
+      can learn more about it on
+      <a
+        href="https://www.udemy.com/course/the-complete-javascript-course/learn/lecture/22648389#overview"
+        >Udemy</a
+      >
+    </p>
+    <img
+      src="https://frontends.udemycdn.com/frontends-course-landing-page/_next/static/media/coding-exercises-demo-preview-desktop.6c2ffdd1.png"
+    />
+
+    <h6>Another Heading</h6>
+    <p id="course-image" class="second">Just another paragraph</p>
+
+    <form id="your-name">
+      <h2>Your name here</h2>
+      <p>Please fill in this form :)</p>
+      <input type="text" placeholder="Your name" />
+      <button>OK!</button>
+    </form>
+  </body>
+</html>
+```
+
+Two very import attributes to identify elements.
+
+`class`:
+
+`id`: in convention, use dash like `course-image` to name an id.
+
+#### 70. Basic Styling with CSS
+
+`Selector`
+
+- element selector
+-
+
+`<style></style>`:
+
+`<link .../>`:
+
+```html
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+  <link href="style.css" rel="stylesheet" />
+  <title>Learning HTML & CSS</title>
+</head>
+```
+
+###### CSS Rule Structure
+
+```
+Selector {
+  Property: Value;
+}
+```
+
+```css
+/* ===============================
+   Global styles
+   =============================== */
+
+body {
+  /* Type selector (element selector)
+     Applies to the <body> element */
+
+  background-color: rgb(255, 247, 201);
+  /* Non-inherited property:
+     Background color does NOT inherit to child elements */
+
+  font-family: Arial;
+  /* Inherited property:
+     Child elements inherit this font unless overridden */
+
+  font-size: 20px;
+  /* Inherited property:
+     Child elements inherit the base font size */
+}
+
+/* ===============================
+   Heading styles
+   =============================== */
+
+h1 {
+  /* Type selector */
+
+  font-size: 40px;
+  /* Inherited property (but overridden here):
+     Overrides the inherited font-size from body */
+}
+
+/* ===============================
+   Class selector example
+   =============================== */
+
+.first {
+  /* Class selector:
+     Applies to any element with class="first" */
+
+  color: red;
+  /* Inherited property:
+     Text color is inherited by child elements */
+}
+
+/* ===============================
+   ID selector example
+   =============================== */
+
+#your-name {
+  /* ID selector:
+     Targets the element with id="your-name" */
+
+  background-color: rgb(255, 220, 105);
+  /* Non-inherited property */
+
+  border: 5px solid #444;
+  /* Non-inherited property:
+     Borders never inherit */
+}
+```
+
+#### 71. Introduction to the CSS Box Model
+
+Box Model, along with html elements, can be checked using `inspect` in right click menu.
+
+`content`: text, images, etc. with `width` and `height`.
+
+`padding`: transparent area around the content, inside of the box;
+
+`border`: goes around the padding and the content;
+
+The areas above is called `fill area`;
+
+`margin`: space between boxes;
+
+## Section 7: JavaScript in the Broswer: DOM and Event [PROJECT]
+
+#### 72. Section Intro
+
+Finally, first project with user interface!
+
+#### 74. PROJECT#1: Guess My Number!
+
+###### Select HTML Elements in JavaScript
+
+- Link JS file to the HTML
+
+```html
+<body>
+  <header>...</header>
+  <main>...</main>
+  <script src="script.js"></script>
+</body>
+```
+
+- Select and log text content to console
+
+  `document` is the entry document to the DOM
+
+```javascript
+// Selects the first element with the class name "message" from the DOM,
+// accesses its text content, and prints that text to the browser console
+console.log(document.querySelector(".message").textContent);
+```
+
+#### 75. What's the DOM and DOM Manipulation
+
+###### What is the DOM
+
+`Document Object Model`: Connection Point between HTML and JavaScipt code
+
+`Tree Structure`: document -> html elements (root) -> other elements
+
+DOM methods and Properties are part of Web APIs, that can interact with JS code.
+
+###### Manipulating Elements
+
+```javascript
+// Selects a normal HTML element (e.g. div/span) with class "score"
+// and sets its text content to 10
+document.querySelector(".score").textContent = 10;
+
+// Selects an input element with class "guess"
+// input elements use the "value" property instead of textContent
+document.querySelector(".guess").value = 23;
+```
+
+`event`: something that happened on the page, like mouse click.
+
+`Event Listener`: wait for some event to happen, and react to it.
+
+`addEventListener`: a method to add an event listener to element in html. It will include an `event handler`, which is a function to react to an event.
+
+```javascript
+// document.querySelector('.check')
+// → returns the first Element that matches the CSS selector ".check"
+
+// .addEventListener('click', function () { ... })
+// → registers an event listener on the element
+
+// "click" is the event type (a string)
+// function () { ... } is a function expression used as a callback
+document.querySelector(".check").addEventListener("click", function () {
+  // Becareful, input element should use value, instead of textContent
+  const inputGuessStr = document.querySelector(".guess").value;
+
+  if (!inputGuessStr) {
+    document.querySelector(".message").textContent = "No Number Input";
+  } else {
+    document.querySelector(".message").textContent = inputGuessStr;
+  }
+});
+```
+
+#### 78. Implementing the Game Logic
+
+Notes: It is generally good to keep state variables in your JS code, instead of relying on reading it from the DOM.
+
+#### 79. Manipulating CSS Style
+
+Notes:
+
+- `style` is used to access CSS style properties
+- variable used in CSS is usually like `background-color`, but camel case like `backgroundColor` should be used instead in JS
+- `str` should be passed in CSS style
+
+###### Related CSS style
+
+```css
+body {
+  font-family: "Press Start 2P", sans-serif;
+  color: #eee;
+  background-color: #222;
+  /* background-color: #60b347; */
+}
+```
+
+###### JS Code
+
+```javascript
+document.querySelector("body").style.backgroundColor = "#60b347";
+```
