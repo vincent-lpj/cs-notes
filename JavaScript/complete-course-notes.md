@@ -647,7 +647,7 @@ console.log(jonas["last" + nameKey]); // the advantage of bracket notation is th
 // Operator Precendence: mdn operator precendence
 // the dot notation (Member access) has a higher priority over {}
 console.log(
-  `${jonas.firstName} has ${jonas.friends.length} friends, and his best friend is called ${jonas.friends[0]}`
+  `${jonas.firstName} has ${jonas.friends.length} friends, and his best friend is called ${jonas.friends[0]}`,
 );
 ```
 
@@ -1321,3 +1321,576 @@ body {
 ```javascript
 document.querySelector("body").style.backgroundColor = "#60b347";
 ```
+
+#### 81. Implementing Highscores
+
+#### 82. Refactoring Our Code: The DRY Principle
+
+The `DRY` Principle: Do not repeat your code.
+
+Refactor your code:
+
+- Identify duplicate code
+
+## Section 8 How JavaScript Works Behind the Scenes
+
+#### 91. Section Intro
+
+Learn how the language works
+
+#### 93. An High-Level Overview of JavaScript
+
+###### Extension of Definition
+
+Definition in previous sections:
+
+> JavaScript is a high-level, object-oriented, multi-paradigm, programming language.
+
+Definition now:
+
+> JavaScript is a high-level, prototype-based, object-oriented, multi-paradigm, interpreted or just-in-time compiled, dynamic, single-threaded, garbage-collected programming language with first-class functions and a non-blocking event loop concurrency model.
+
+###### Nine Topics of JavaScript
+
+`High Level`:
+
+Low-level, like C, will directly manipulate resources, like computer memory.
+
+High-level, like JS and Python, have abstractions, but is lower than C.
+
+`Garbage Collection`:
+
+A algrhthim that cleans unused objects.
+
+`Interpreted or just-in-time compiled`:
+
+1. Every program that computer can execute is machine code, include only 0 and 1.
+2. JS code should, eventually, converted to machine code, by `interpreting` or `compiling`.
+3. In JS, this progress happens in JavaScript engine.
+
+`Multi-Paradigm`:
+
+Paradigm is an approach and mindset of structuring code, which will direct your coding style and technique.
+
+1. Procedual Programming
+2. Object-oriented programming (OOP)
+3. Functional programming
+
+`Prototype-based object-oriented`:
+
+Almost everything in JS is object, like an Array.
+
+Array has methods, which is stored in blueprints, called `prototype`. This will be `inherited` and used in any array.
+
+`First-class functions`:
+
+Functions are treated as `variables`, which can be stored and passed.
+
+```javascript
+// Here, function closeModal is passed as an argument in another function
+overlay.addEventListener("click", closeModal);
+```
+
+`Dynamic`:
+
+In JS, we do not assign data types to variables, instead, it is only known when JS engine execute code.
+
+`Single-threaded` and `Non-blocking event loop`:
+
+Concurrency Model: how JS engine handles multiple tasks happening at the same time.
+
+JavaScript runs in one single thread.
+
+#### 94. The JavaScript Engine and Runtime
+
+###### JavaScript Engine
+
+JS Engine is simply a program that executes JavaScript code.
+
+Every broswer has a JavaScript Engine, like V8 Engine in Google Chrome.
+
+###### Components of JavaScript Engine
+
+`Call Stack`: where your code is executed.
+
+`Heap`: where objects are stored.
+
+###### How JavaScript Engine Works
+
+Compilation vs. Interpretation
+
+`Compilation`: Entire code is converted into `machine code` at once, and written to a binary file that can be executed by a computer.
+
+`Interpretation`: Interpreter runs through the source code and executes it `line by line`.
+
+How JS does:
+
+`Just-in-time compilation`: Entire code is converted into machine code at once, and then execute it `immediately`, without generating a binary file.
+
+source code -> parsing -> compilation -> execution
+
+compiled code is optimized and swapped during execution
+
+###### JavaScript Runtime
+
+JS runtime is like a container that contains everything you need to run JS code, with the core of JS engine.
+
+`Runtime in Browser`:
+
+includes JavaScript Engine, Web APIs (DOM, etc), callback queue (such as functions in event listener).
+
+#### 95. Execution Contexts and The Call Stack
+
+###### Sample Code
+
+```javascript
+// this is a line of top-level code
+const name = 'John';
+
+// const first = () is also top-level code, but not the function body
+const first = () => {
+  let a = ;
+  const b = second(7,9);
+  a = a + b;
+  return a;
+}
+
+// function second(x,y) is top-level code
+function second(x,y) {
+  var c = 2;
+  return c;
+}
+
+// this is a line of top-level code
+const x = first();
+```
+
+###### Execution of JavaScript Code
+
+(complication) -> Execution includes three steps:
+
+1. Creation of `global execution context` (for top-level code);
+   - `top-level code` is code that outside any function
+   - function body are only executed when they are called
+2. Execution of top-level code inside global execution context;
+3. Execution of `functions` and waiting for callbacks;
+
+###### Execution Context
+
+Execution context is environment in which a piece of JavaScript is executed. It stores all necessary information for some code to be executed.
+
+Components
+
+- Variable Environment
+  - let, const, and var declaration
+  - Functions
+  - `argument` object
+
+- Scope chain
+- `this` keyword
+
+Notes: arrow function do not have `argument` object and `this` keyword
+
+###### Execution Contexts of Code Sample
+
+In the sample above, three execution contexts will be created during execution.
+
+- Global
+  - Includes name, first, second, and x
+- first()
+  - Includes a and b
+  - do not include arguments because of arrow function
+- second()
+  - Includes c
+  - Includes `arguments = [7. 9]`
+
+###### Call Stack
+
+To keep track of execution context, `call stack` is introduced.
+
+`Call Stack` is basically execution contexts is stacked during execution.
+
+In call stack, each execution context is stacked in order, and poped out when finishing.
+
+In sample code, the call stack is like, from top to bottom, `second() -> first() -> global`;
+
+#### 96. Scope and The Scope Chain
+
+`Scope Chain` is contained in every execution context.
+
+The most important questions that scoping answers:
+
+**Where do variables live, and where can we access a certain variable, and where not**
+
+###### Scope Concept
+
+- `Scoping`: How our variables are organized and accessed.
+- `Lexical Scoping`: Scoping is controlled by **placement** of functions and blocks in the code.
+  - for example, inner functions can always access variables from their outer scopes.
+- `Scope`: Space or environment in which a certain variable is **declared** (variable environment in case of functions)
+  - `global` scope
+  - `function` scope
+  - `block` scope
+- `Scope of variables`: Region of our code where a certain variable can be **accessed**.
+
+###### The 3 Types of Scope
+
+1. Global Scope
+   - global scope is outside of any function block
+
+   - variable declared in global scope can be accessed **everwhere**
+
+     ```javascript
+     const me = "Jona";
+     ```
+
+2. Function Scope
+   - Variable are accessible only inside function, NOT outside
+
+   - Also called local scope
+
+     ```javascript
+     function calcAge(birthYear) {
+       const now = 2037;
+       const age = now - birthYear;
+       return age;
+     }
+
+     console.log(now); // Illegal; ReferenceError
+     ```
+
+3. Block Scope (ES6)
+   - Variables are accessible only **inside block** (block scoped).
+
+   - However, this only applies to **let** and **const** variables.
+
+   - Functions are also block scoped (only in strict mode).
+
+     ```javascript
+     if (year >= 1981) {
+       const millenial = true;
+       const food = "Avacado toast";
+     }
+
+     console.log(millenial); // Illegal, ReferenceError
+     ```
+
+###### The Scope Chain
+
+Scope has access to variables from all **outer** scopes.
+
+The following scopes are chained, in which inner scope can access variables in outer scopes
+
+​ global scope <- first() scope <- second() scope
+
+However, outer scope can never have access to inner scopes.
+
+For example, in global scope, you can not access variables that are stored in first() scope.
+
+###### Code Analysis
+
+Note that scope is only about where the function is placed, instead of called.
+
+```javascript
+"use strict";
+
+const a = "Jonas";
+// Function declarations are hoisted,
+// so they can be called before they are defined
+first();
+
+function first() {
+  const b = "Hello!";
+  second();
+
+  function second() {
+    const c = "Hi";
+    // note here althrough function third is called here,
+    // it can not access variable c;
+    third();
+  }
+}
+
+function third() {
+  const d = "Hey";
+  // console.log(d + c + b + a);
+  // ReferenceError: c, b is not defined
+  console.log(d + a);
+}
+```
+
+**Image of Scope Chain**
+
+global scope <- first() scope <- second scope
+
+​ <- third() scope
+
+**Breakdown of Scope Chain**
+
+1. Global Scope
+   - a = 'Jonas'
+   - first = <function>
+   - third = <function>
+2. first() scope
+   - b = 'Hello!'
+   - second = <function>
+   - access to global scope
+     - a = 'Jonas'
+     - first = <function>
+     - third = <function>
+3. second() scope
+   - c = 'Hi'
+   - access to first() scope
+     - b = 'Hello!'
+     - second = <function>
+   - access to global scope
+     - a = 'Jonas'
+     - first = <function>
+     - third = <function>
+4. third() scope
+   - d = 'Hey'
+   - access to global scope
+     - a = 'Jonas'
+     - first = <function>
+     - third = <function>
+
+**Conclusion**
+
+Therefore,
+
+- first and second function can be called before it is defined.
+- third function can only have access to variables d and a.
+
+#### 97. Scoping in Practice
+
+```javascript
+"use strict";
+
+function calcAge(birthYear) {
+  const age = 2037 - birthYear;
+  // When firstName is not found in calcAge() scope
+  // JS will do a variaable look-up
+  // and find it in global scope
+  console.log(firstName);
+
+  function printAge() {
+    // When JS engine can not find age in printAge() scope
+    // it will look up at its parent scope, calcAge() scope
+
+    // firstName variable is find in global scope
+    const output = `${firstName}, You are ${age}, born in ${birthYear}.`;
+    console.log(output);
+
+    if (birthYear >= 1981 && birthYear <= 1996) {
+      var millenial = true;
+
+      // It is legal to have variabes that have the same name in different scope
+      // However, if you change variables in outer scopes, the value will changes
+      const firstName = "Steven";
+      // JS will use 'Steven' instead of 'Jonas',
+      // because it can be found in this scope, JS engine will not look it up in global scope.
+      const messageStr = `Oh, and you're a millenial ${firstName}`;
+      console.log(messageStr);
+    }
+
+    // messageStr is block scoped, and can be accessed only in if blocks
+    // ReferenceError
+    // console.log(messageStr);
+
+    // however, var can not be block scoped
+    console.log(millenial);
+  }
+
+  printAge();
+  return age;
+}
+
+// Although firstName is defined after calcAge function, it will work
+const firstName = "Jonas";
+calcAge(1991);
+
+// Global scope can not access variable in its child scope, calcAge() scope
+// ReferenceError
+// console.log(age);
+// printAge();
+```
+
+#### 98. Variable Environment: Hoisting and The TDZ
+
+###### Hoisting
+
+Hoisting means to make some type of variables accessible/usable in the code before they are actually declared. So, it seems like that variables are lifted to the top of their scope.
+
+Behind the scenes, before execution, code is scanned for variables declarations, and for each variable, a new property is created in the variable environment object.
+
+|                                | Hoisted?     | Initial Vale         | Scope    |
+| ------------------------------ | ------------ | -------------------- | -------- |
+| function declaration           | yes          | actual function      | block    |
+| var variables                  | yes          | undefined            | function |
+| let, const variables           | no (part of) | <uninitialized>, TDZ | block    |
+| function expression and arrows |              |                      |          |
+
+- You can call a function defined by function declarations before the code block, because of hoisting.
+- The hoisting of `var` variables is weird, so that is why you should keep using `let` and `const` variables.
+- The behavior of function expression and arrows is dependent on `var`, `let` and `const` in front of it.
+
+###### Temporal Dead Zone: let and const
+
+```javascript
+"use strict";
+
+const myName = "Jonas";
+
+if (myName === "Jonas") {
+  // -----------TDZ for job variables-------------
+  // Uncaught ReferenceError: Cannot access 'job' before initialization
+  console.log(`Jonas is a ${job}`);
+  const age = 2037 - 1991;
+  console.log(age);
+  // ---------------------------------------------
+
+  const job = "teacher";
+
+  // Uncaught ReferenceError: x is not defined
+  console.log(x);
+}
+```
+
+Note: calling a variable defined by `let` and `const`, before it is declared, and without declarations, will cause different kinds of error.
+
+#### 99. Hoisting and TDZ in Pratice
+
+Note:
+
+- Although function declarations can be hoisted, it is a good idea to use function after it is defined.
+- Do not use `var` to declare variables, use `let` and `const` instead.
+- Variables created by `var` will create a property in `window` object.
+
+```javascript
+"use strict";
+
+// Variables
+
+// will log undefined
+// because me variable defined by var is hoisted
+console.log(me);
+
+//Uncaught ReferenceError: Cannot access 'job' before initialization
+//because this line is located in TDZ of job variable
+// console.log(job);
+
+// Uncaught ReferenceError: Cannot access 'year' before initialization
+// same as job
+// console.log(year);
+
+var me = "Jonas";
+let job = "teacher";
+const year = 1991;
+
+// Functions
+// will log 5, because function defined by delaration is hoisted
+console.log(addDecl(2, 3));
+
+// Uncaught ReferenceError: Cannot access 'addExpr' before initialization
+// Same as variables, because it is defined by const
+// console.log(addExpr(2, 3));
+
+// Uncaught TypeError: addArrow is not a function
+// It is hoisted, because it is defined by var,
+// however, because undefined is not function, it can not be called here.
+console.log(addArrow(2, 3));
+
+// Function Declaration
+function addDecl(a, b) {
+  return a + b;
+}
+
+// Function Expression
+const addExpr = function (a, b) {
+  return a + b;
+};
+
+// Arrow Function
+var addArrow = (a, b) => a + b;
+```
+
+#### 100. The this Keyword
+
+`this` keyword/variable is special variable that is created for every <u>execution context</u> (every function).
+
+- `this` keyword is one of the three components of execution context.
+- It takes the value of (points to) the 'owner' of the function in which `this` keyword is used.
+- It is not static. It depends on how the function is called, and the value is **only assigned** when the function is **called**.
+
+|                        | Meaning of `this`                              |
+| ---------------------- | ---------------------------------------------- |
+| Method                 | Object that is calling the method              |
+| Simple function call   | undefined                                      |
+| Arrow function         | The parent's `this`, because it has not `this` |
+| Event Listener         | DOM element that the handler is attached to    |
+| new, call, apply, bind | ... later in the lecture                       |
+
+#### 101. The this Keyword in Practice
+
+`window` is the global object, so, `this` in global scope will point to window.
+
+```javascript
+"use strict";
+
+// window
+console.log(this);
+
+const calcAge = function (birthYear) {
+  const age = 2037 - birthYear;
+
+  // this keyword is undefined in regular function
+  // undefined will be logged here
+  console.log(this);
+  return age;
+};
+
+// This functiion call has no owner
+calcAge();
+
+const calcAgeArrow = (birthYear) => {
+  const age = 2037 - birthYear;
+
+  // this keyword points to window
+  // because in arrow function, lexical this is applied
+  console.log(this);
+  return age;
+};
+
+// Arrow Function is called
+calcAgeArrow();
+
+const jonas = {
+  birthYear: 1991,
+  calcAge: function () {
+    // In a method call, jonas object is returned by this
+    // jonas is the owner of this
+    console.log(this);
+    console.log(this.birthYear);
+  },
+};
+
+jonas.calcAge();
+```
+
+```javascript
+// Method Browing
+matilda.calcAge = jonas.calcAge;
+
+// Beaware, this in this function call will present matilda,
+// because matilda is the owner of this function
+matilda.calcAge();
+
+const normalFunc = jonas.calcAge;
+// this in normalFunc is undefiend, because the owner becomes a normal function
+normalFunc();
+```
+
+#### 102. Regular Functions vs. Arrow Functions
+
+- Never use arrow functions as an object method, because `this` in arrow functions inside an object will return `window` object in global scope, instead of the object it belongs to.
+-
