@@ -262,7 +262,7 @@ if (height) {
 
 #### 22. Equality Operators
 
-```
+```javascript
 // strict equality operators: ===
 // always use === in use
 const age = 18;
@@ -1331,6 +1331,168 @@ The `DRY` Principle: Do not repeat your code.
 Refactor your code:
 
 - Identify duplicate code
+- create functions might be a good idea for refactoring your code.
+
+```javascript
+// for example, we can create a function to display messages
+const displayMessage = function (message) {
+  document.querySelector('.message').textContent = message;
+};
+
+document.querySelector('.check').addEventListener('click', function () {
+  // Becareful, input element should use value, instead of textContent
+  const guess = Number(document.querySelector('.guess').value);
+
+  if (!guess) {
+    // document.querySelector('.message').textContent = 'No Number Input';
+    displayMessage('No Number Input');
+  } else {
+  ...
+  }
+```
+
+#### 83. PROJECT #2: Modal Window
+
+In this project, we will build our first UI.
+
+Manipulating `class in HTML elements` will be learnt here.
+
+###### Selection of DOM Elements
+
+Usually, we store selected DOM elements in a variable, for future use.
+
+```javascript
+"use strict";
+
+const modal = document.querySelector(".modal");
+const overlay = document.querySelector(".overlay");
+const btnCloseModal = document.querySelector(".close-modal");
+// note that querySelector only returns the first element
+// const btnOpenModal = document.querySelector('.show-modal');
+// so, instead, we use querySelectorAll here
+const btnOpenModal = document.querySelectorAll(".show-modal"); // return node list
+
+console.log(btnOpenModal);
+
+// node list can be iterated as Array do
+for (let i = 0; i < btnOpenModal.length; i++) {
+  console.log(btnOpenModal[i].textContent);
+}
+```
+
+#### 84. Working with Classes
+
+###### Background
+
+Here, we interact with `classList` property in a DOM element.
+
+Note: `classList` property contains classes that a html element belongs to, for example, `"modal hidden"` in below.
+
+```html
+<div class="modal hidden">
+  <button class="close-modal">&times;</button>
+  <h1>I'm a modal window 😍</h1>
+  <p>
+    Lorem ipsum dolor sit amet, consectetur adipisicing elit, sed do eiusmod
+    tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam,
+    quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo
+    consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse
+    cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat
+    non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.
+  </p>
+</div>
+<div class="overlay hidden"></div>
+```
+
+```css
+/* -------------------------- */
+/* CLASSES TO MAKE MODAL WORK */
+.hidden {
+  display: none;
+}
+```
+
+###### JavaScript Code
+
+```javascript
+'use strict';
+
+...
+const closeModal = function () {
+  modal.classList.add('hidden');
+  overlay.classList.add('hidden');
+};
+const openModal = function () {
+  // here, hidden class is removed from modal element,
+  // so, modal does not need to follow none display in hidden class
+  modal.classList.remove('hidden');
+  overlay.classList.remove('hidden');
+};
+
+// node list can be iterated as Array do
+for (let i = 0; i < btnOpenModal.length; i++) {
+  // note that do not call the function here, use openModal, instead of openModal()
+  btnOpenModal[i].addEventListener('click', openModal);
+}
+
+// when the close button is clicked, close the modal
+btnCloseModal.addEventListener('click', closeModal);
+// when the overlay is clicked, close the modal
+overlay.addEventListener('click', closeModal);
+```
+
+#### 85. Handling an "Esc" Keypress Event
+
+so far, we have dealt with mouse clicking event, we will learn how to deal with `keypress event`
+
+Note that keypress event is called `global event`, because it does not belongs to any element.
+
+Thus, the event handler function should be attached to `document` element, which is the root element of DOM.
+
+###### Event Object
+
+Event object will be passed in event handler function automatically as an argument.
+
+We can catch it by `e`, `event`, or any name else.
+
+```javascript
+// listen to a keydown event, instead of click event
+// we actually use keydown, instead of keypress here
+document.addEventListener('keydown', function (e) {
+  // the keydown event will return propery like key
+  // console.log(e);
+  console.log(e.key);
+
+  // if the modal classList do not contain hidden class
+  // and we press the
+  if (e.key === 'Escape' && !modal.classList.contains('hidden')) {
+      closeModal();
+    }
+  }
+});
+```
+
+#### 86. PROJECT #3: Pig Game
+
+A comprehensive project to practice all skills we have learnt in previous lectures.
+
+```javascript
+"use strict";
+
+// Selecting elements
+// # is used to select element by id, and . is for classes
+const score0El = document.querySelector("#score--0");
+// the following method only works for id selection
+const score1El = document.getElementById("score--1");
+const diceEl = document.querySelector(".dice");
+
+// Starting conditions
+score0El.textContent = 0;
+score1El.textContent = 0;
+diceEl.classList.add("hidden"); // be careful, it is not .hidden here
+
+console.log(dice);
+```
 
 ## Section 8 How JavaScript Works Behind the Scenes
 
@@ -1893,4 +2055,207 @@ normalFunc();
 #### 102. Regular Functions vs. Arrow Functions
 
 - Never use arrow functions as an object method, because `this` in arrow functions inside an object will return `window` object in global scope, instead of the object it belongs to.
--
+- But, arrow function works amazingly as nested function in object method, because `this` keyword will be inherited from its parent.
+
+```javascript
+"use strict";
+
+const jonas = {
+  firstName: "Jonas",
+  birthYear: 1991,
+  calcAge: function () {
+    console.log(2037 - this.birthYear);
+
+    // Using regular function in a method will make this keyword invalid
+    // Because this keywory in a regular function is undefined.
+    // Uncaught TypeError: Cannot read properties of undefined (reading 'birthYear')
+    // const isMillenial = function () {
+    //   console.log(this);
+    //   console.log(this.birthYear >= 1981 && this.birthYear <= 1996);
+    // };
+
+    // Instead, use arrow function when you want to nest a function in a method
+    // Because this keyword in an arrow function will return its parent's this
+    const isMillenial = () => {
+      console.log(this);
+      console.log(this.birthYear >= 1981 && this.birthYear <= 1996);
+    };
+    isMillenial();
+  },
+
+  greet: () => {
+    // Here, this keyword will return windoe, which is this keyword in global scope
+    // Because this keyword in arrow function will return its parent's this
+    console.log(this);
+    // There is no firstName property in window,
+    // So, undefined will be returned
+    console.log(`Hey, ${this.firstName}`);
+  },
+};
+
+jonas.calcAge();
+jonas.greet();
+```
+
+###### Arguments Keyword
+
+`arguments` keyword only exist in regular functions, which are defined by function declaration and expression, NOT in arrow functions.
+
+#### 103. Memory Management: Primitives vs. Objects
+
+`Memory Management` refers how JS engine allocates places for variables, and free up that memory space when these variables are not needed.
+
+###### Life Cycle
+
+Every value in JS goes through a life cycle
+
+1. Allocate Memory
+2. Use Memory
+3. Release Memory
+
+###### Allocate Memory
+
+Values in JS belong to either `primatives` or `objects`
+
+`HEAP` is one of two parts of JavaScript Engine, where objects are stored.
+
+`Call Stack` is where functions run, and where primatives, and **references to objects** stored.
+
+###### Understanding Object Reference
+
+```javascript
+const name = 'Jonas';
+// primative values are stored directly in execution context
+const age = 46;
+let newAge = age;
+// note here age is still 46
+// but newAge becomes 47
+newAge++;
+
+// objects are stored in HEAP
+// in execution context, only reference to objects are stored
+const location = {
+  city = 'Faro';
+  country = 'Portugal';
+}
+const newLocation = location;
+// because location and newLocation stores reference to the same object
+// both object that locatin and newLocation refers to are changed
+// the values of property location.city and newLocation.city both become 'Lisbon'
+newLocation.city = 'Lisbon'
+```
+
+#### 104. Object Reference in Practice (Shallow vs. Deep Copies)
+
+```javascript
+"use strict";
+
+// the following object, jessica, is stored in the HEAP of JS engine
+// and the call stack will hold a reference to the memory address to which the object is stored in HEAP
+const jessica = {
+  firstName: "Jessica",
+  lastName: "Williams",
+  age: 27,
+};
+
+// when we tried to copy the object jesscia
+// we did not create a new object in the HEAP
+// only the reference to the same object are shared
+const marriedJessica = jessica;
+// that is why we can change an object declared by const
+// in fact, we did not change reference itself, but only the object it points to
+marriedJessica.lastName = "Davis";
+// JS engine will return error if we change the reference stored in jessica, which is declared by const
+// Uncaught TypeError: Assignment to constant variable.
+// jessica = { x: 23 };
+
+// note: in function, only reference of object is passed as argument
+const marryPerson = function (originalPerson, newLastName) {
+  // thus, the original object stored in HEAP is changed, instead of creating a new object
+  originalPerson.lastName = newLastName;
+  return originalPerson;
+};
+
+// so, the objects inside and outside the function will be changed, because they are actually the same one
+const marriedJessicaFunc = marryPerson(jessica, "Davis");
+
+// both lastName of jessica and marriedJessica will be changed
+console.log("Before", jessica);
+console.log("After", marriedJessica);
+console.log("After (func):", marriedJessicaFunc);
+```
+
+###### Shallow Copy
+
+```javascript
+"use strict";
+
+const jessica = {
+  firstName: "Jessica",
+  lastName: "Williams",
+  age: 27,
+  // note that family also only hold reference to the array object
+  // so shallow copy only copy the reference to the array
+  family: ["Alice", "Bob"],
+};
+
+// Shallow Copy
+// here, ... copies the object jessica, and store it in the HEAP
+// and the new object's reference is stored in jessicaCopy
+// however, this shallow copy has some shortcomings
+const jessicaCopy = { ...jessica };
+jessicaCopy.lastName = "Davis";
+
+console.log("Before:", jessica);
+console.log("After:", jessicaCopy);
+
+jessica.family.push("John");
+
+// change in family array applies to both jessica, and jessicaCopy
+console.log("Before:", jessica);
+console.log("After:", jessicaCopy);
+```
+
+###### Deep Copy (Clone)
+
+```javascript
+"use strict";
+
+const jessica = {
+  firstName: "Jessica",
+  lastName: "Williams",
+  age: 27,
+  // note that family also only hold reference to the array object
+  family: ["Alice", "Bob"],
+};
+
+// Deep Copy
+const jessicaClone = structuredClone(jessica);
+jessicaClone.lastName = "Davis";
+jessicaClone.family.push("John");
+
+// note that the object of jessica and jessicaCLone are different now
+console.log(jessica);
+console.log(jessicaClone);
+```
+
+#### 105. Memory Management: Garbage Collection
+
+Here we focus on the third phrase of memory life cycle: `Release Memory`
+
+Question: How memory free up after we no longer need a value
+
+- Call Stack: variable environment is simply deleted when EC pops off stack
+  - Since global execution context always exist, global variables will be in call stack forever
+- HEAP: `Garbage Collection`
+  - Garbage Collection is automatical, and can not be controlled by users.
+  - `mark-and-sweep` algorithm.
+
+`Memory Leak` refers to when objects that are no longer needed are **incorrectly** still reachable, and therefore not being garbage collected.
+
+###### Future Topics
+
+- Closure -> a closer look at functions
+- Prototypal Inheritance -> OOP with JavaScript
+- Event Loop -> Asynchronous JavaScript
+- How the DOM Really Works -> Advanced DOM and Events
