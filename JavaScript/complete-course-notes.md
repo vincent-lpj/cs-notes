@@ -1494,6 +1494,338 @@ diceEl.classList.add("hidden"); // be careful, it is not .hidden here
 console.log(dice);
 ```
 
+#### 87. Rolling the Dice
+
+DOM elements have `classList`, `style`, `src`, etc.
+
+```javascript
+"use strict";
+
+// Selecting elements
+// # is used to select element by id, and . is for classes
+const score0El = document.querySelector("#score--0");
+// the following method only works for id selection
+const score1El = document.getElementById("score--1");
+const current0El = document.getElementById("current--0");
+
+const diceEl = document.querySelector(".dice");
+const btnNew = document.querySelector(".btn--new");
+const btnRoll = document.querySelector(".btn--roll");
+const btnHold = document.querySelector(".btn--hold");
+
+// Starting conditions
+score0El.textContent = 0;
+score1El.textContent = 0;
+diceEl.classList.add("hidden"); // be careful, it is not .hidden here
+
+let currentScore = 0; // initialize currentScore
+
+// console.log(dice);
+
+// because the event handler will not be used repeatively, so use anonymous function here
+btnRoll.addEventListener("click", function () {
+  // 1. Generate a random dice roll
+  const dice = Math.trunc(Math.random() * 6) + 1;
+  console.log(dice);
+
+  // 2. Display dice
+  diceEl.classList.remove("hidden");
+  diceEl.src = `dice-${dice}.png`; // select images in according to dice number
+
+  // 3. Check for rolled 1
+  if (dice !== 1) {
+    currentScore += dice;
+    current0El.textContent = currentScore; // change later
+  } else {
+    // switch to the next player
+  }
+});
+```
+
+#### 88. Switch the Active Player
+
+- use `activePlayer` to hold the status of current player
+- use `classList.toggle` method to add a class when absent or remove a class when exists
+
+```javascript
+"use strict";
+
+// Selecting elements
+// # is used to select element by id, and . is for classes
+const player0El = document.querySelector(".player--0");
+const player1El = document.querySelector(".player--1");
+const score0El = document.querySelector("#score--0");
+// the following method only works for id selection
+const score1El = document.getElementById("score--1");
+const current0El = document.getElementById("current--0");
+const current1El = document.getElementById("current--1");
+
+const diceEl = document.querySelector(".dice");
+const btnNew = document.querySelector(".btn--new");
+const btnRoll = document.querySelector(".btn--roll");
+const btnHold = document.querySelector(".btn--hold");
+
+// Starting conditions
+score0El.textContent = 0;
+score1El.textContent = 0;
+const scores = [0, 0];
+diceEl.classList.add("hidden"); // be careful, it is not .hidden here
+
+let currentScore = 0; // initialize currentScore
+let activePlayer = 0; // initialize player status; set default value to zero
+
+// console.log(dice);
+
+// because the event handler will not be used repeatively, so use anonymous function here
+btnRoll.addEventListener("click", function () {
+  // 1. Generate a random dice roll
+  const dice = Math.trunc(Math.random() * 6) + 1;
+  console.log(dice);
+
+  // 2. Display dice
+  diceEl.classList.remove("hidden");
+  diceEl.src = `dice-${dice}.png`; // select images in according to dice number
+
+  // 3. Check for rolled 1
+  if (dice !== 1) {
+    currentScore += dice;
+    document.getElementById(`current--${activePlayer}`).textContent =
+      currentScore; // change later
+  } else {
+    // switch to the next player
+    document.getElementById(`current--${activePlayer}`).textContent = 0;
+    currentScore = 0;
+
+    activePlayer = activePlayer === 0 ? 1 : 0;
+
+    player0El.classList.toggle("player--active"); // use toggle to dynamiclly add or remove class
+    player1El.classList.toggle("player--active");
+  }
+});
+```
+
+#### 89. Holding the Current Score
+
+- add a variable, `playing` , to recode the state of your game
+- Make switch player code reuseable by add it to a function `switchPlayer`
+
+```javascript
+"use strict";
+
+// Selecting elements
+// # is used to select element by id, and . is for classes
+const player0El = document.querySelector(".player--0");
+const player1El = document.querySelector(".player--1");
+const score0El = document.querySelector("#score--0");
+// the following method only works for id selection
+const score1El = document.getElementById("score--1");
+const current0El = document.getElementById("current--0");
+const current1El = document.getElementById("current--1");
+
+const diceEl = document.querySelector(".dice");
+const btnNew = document.querySelector(".btn--new");
+const btnRoll = document.querySelector(".btn--roll");
+const btnHold = document.querySelector(".btn--hold");
+
+// Starting conditions
+score0El.textContent = 0;
+score1El.textContent = 0;
+const scores = [0, 0];
+diceEl.classList.add("hidden"); // be careful, it is not .hidden here
+
+let currentScore = 0; // initialize currentScore
+let activePlayer = 0; // initialize player status; set default value to zero
+let playing = true;
+
+// console.log(dice);
+
+const switchPlayer = function () {
+  document.getElementById(`current--${activePlayer}`).textContent = 0;
+  currentScore = 0;
+
+  activePlayer = activePlayer === 0 ? 1 : 0;
+
+  player0El.classList.toggle("player--active"); // use toggle to dynamiclly add or remove class
+  player1El.classList.toggle("player--active");
+};
+
+// because the event handler will not be used repeatively, so use anonymous function here
+btnRoll.addEventListener("click", function () {
+  // run the code below only when playing
+  if (playing) {
+    // 1. Generate a random dice roll
+    const dice = Math.trunc(Math.random() * 6) + 1;
+    console.log(dice);
+
+    // 2. Display dice
+    diceEl.classList.remove("hidden");
+    diceEl.src = `dice-${dice}.png`; // select images in according to dice number
+
+    // 3. Check for rolled 1
+    if (dice !== 1) {
+      currentScore += dice;
+      document.getElementById(`current--${activePlayer}`).textContent =
+        currentScore; // change later
+    } else {
+      // switch to the next player
+      switchPlayer();
+    }
+  }
+});
+
+btnHold.addEventListener("click", function () {
+  // only active when playing!
+  if (playing) {
+    // 1. add current score to active player's score
+    scores[activePlayer] += currentScore;
+
+    // 2. check if player's score is >= 100
+    document.getElementById(`score--${activePlayer}`).textContent =
+      scores[activePlayer];
+
+    // finish the Game
+    if (scores[activePlayer] >= 20) {
+      playing = false; // deactive the game
+      diceEl.classList.add("hidden");
+
+      document
+        .querySelector(`.player--${activePlayer}`)
+        .classList.add("player--winner"); // define winner style in css and attached here to player block
+
+      document
+        .querySelector(`.player--${activePlayer}`)
+        .classList.remove("player--active");
+    } else {
+      // switch to another user
+      switchPlayer();
+    }
+  }
+});
+```
+
+#### 90. Resetting the Game
+
+- summarize init codes into `init` function
+- call init function at the very beginning, and when that button is pressed
+
+```javascript
+"use strict";
+
+// Selecting elements
+// Note that querySelector requires a query
+// # is used to select element by id, and . is for classes
+const player0El = document.querySelector(".player--0");
+const player1El = document.querySelector(".player--1");
+const score0El = document.querySelector("#score--0");
+const score1El = document.getElementById("score--1"); // this method only works for id selection
+const current0El = document.getElementById("current--0");
+const current1El = document.getElementById("current--1");
+
+const diceEl = document.querySelector(".dice");
+
+const btnNew = document.querySelector(".btn--new");
+const btnRoll = document.querySelector(".btn--roll");
+const btnHold = document.querySelector(".btn--hold");
+
+// declare variables before init function alter them
+let scores, currentScore, activePlayer, playing;
+
+const init = function () {
+  // Starting conditions
+  score0El.textContent = 0;
+  score1El.textContent = 0;
+  current0El.textContent = 0;
+  current1El.textContent = 0;
+
+  diceEl.classList.add("hidden"); // be careful, it is not .hidden here
+
+  player0El.classList.remove("player--winner"); // note that it will not return error when it does not exist
+  player0El.classList.add("player--active"); // default player should be player 0;
+  player1El.classList.remove("player--winner");
+  player1El.classList.remove("player--active");
+
+  // initializing variables
+  scores = [0, 0];
+  currentScore = 0; // initialize currentScore
+  activePlayer = 0; // initialize player status; set default value to zero
+  playing = true;
+
+  document.getElementById("score--0").textContent = 0;
+  document.getElementById("score--1").textContent = 0;
+  document.getElementById("current--0").textContent = 0;
+  document.getElementById("current--1").textContent = 0;
+};
+
+const switchPlayer = function () {
+  document.getElementById(`current--${activePlayer}`).textContent = 0;
+  currentScore = 0;
+
+  activePlayer = activePlayer === 0 ? 1 : 0;
+
+  player0El.classList.toggle("player--active"); // use toggle to dynamiclly add or remove class
+  player1El.classList.toggle("player--active");
+};
+
+// init the game when beginning
+init();
+
+// because the event handler will not be used repeatively, so use anonymous function here
+btnRoll.addEventListener("click", function () {
+  // run the code below only when playing
+  if (playing) {
+    // 1. Generate a random dice roll
+    const dice = Math.trunc(Math.random() * 6) + 1;
+    console.log(dice);
+
+    // 2. Display dice
+    diceEl.classList.remove("hidden");
+    diceEl.src = `dice-${dice}.png`; // select images in according to dice number
+
+    // 3. Check for rolled 1
+    if (dice !== 1) {
+      currentScore += dice;
+      document.getElementById(`current--${activePlayer}`).textContent =
+        currentScore; // change later
+    } else {
+      // switch to the next player
+      switchPlayer();
+    }
+  }
+});
+
+btnHold.addEventListener("click", function () {
+  // only active when playing!
+  if (playing) {
+    // 1. add current score to active player's score
+    scores[activePlayer] += currentScore;
+
+    // 2. check if player's score is >= 100
+    document.getElementById(`score--${activePlayer}`).textContent =
+      scores[activePlayer];
+
+    // finish the Game
+    if (scores[activePlayer] >= 100) {
+      playing = false; // deactive the game
+      diceEl.classList.add("hidden");
+
+      document
+        .querySelector(`.player--${activePlayer}`)
+        .classList.add("player--winner"); // define winner style in css and attached here to player block
+
+      document
+        .querySelector(`.player--${activePlayer}`)
+        .classList.remove("player--active");
+    } else {
+      // switch to another user
+      switchPlayer();
+    }
+  }
+});
+
+// initiaie the condition when this button is pressed
+btnNew.addEventListener("click", init);
+```
+
 ## Section 8 How JavaScript Works Behind the Scenes
 
 #### 91. Section Intro
@@ -2259,3 +2591,347 @@ Question: How memory free up after we no longer need a value
 - Prototypal Inheritance -> OOP with JavaScript
 - Event Loop -> Asynchronous JavaScript
 - How the DOM Really Works -> Advanced DOM and Events
+
+## Section 9: Data Structures, Modern Operators, and Strings
+
+#### 106. Section Intro
+
+Continue learning JS syntax, with focus on data structure.
+
+#### 108. Destructing Arrays
+
+`Destructing` means breaking data structures down into smaller data structures.
+
+We use `[]` to destructure arrays.
+
+Because arrays are ordered, variable order matters during destruction.
+
+```javascript
+// without destructure
+const arr = [2, 3, 4];
+const a = arr[0];
+const b = arr[1];
+const c = arr[2];
+
+// destructure the array
+const [x, y, z] = arr;
+```
+
+```javascript
+const restaurant = {
+  name: "Classico Italiano",
+  location: "Via Angelo Tavanti 23, Firenze, Italy",
+  categories: ["Italian", "Pizzeria", "Vegetarian", "Organic"],
+};
+
+// elements can be skipped by lefting a space in between
+// const [first, second] = restaurant.categories;
+let [main, , secondary] = restaurant.categories;
+console.log(main, secondary);
+```
+
+###### Swap Values by Destructure
+
+```javascript
+[secondary, main] = [main, secondary];
+console.log(main, secondary);
+```
+
+###### Destructure Array Returned by Function
+
+```javascript
+const restaurant = {
+  ...
+  starterMenu: ['Focaccia', 'Bruschetta', 'Garlic Bread', 'Caprese Salad'],
+  mainMenu: ['Pizza', 'Pasta', 'Risotto'],
+  order: function (starterIndex, mainIndex) {
+    return [this.starterMenu[starterIndex], this.mainMenu[mainIndex]];
+  },
+  ...
+}
+
+// receieve two values from function call
+const [starter, mainCourse] = restaurant.order(2, 0);
+console.log(starter, mainCourse);
+```
+
+###### Nested Destructuring
+
+```javascript
+const nested = [2, 4, [5, 6]];
+const [i, , [j, k]] = nested; // JS will automatically unfold this
+console.log(i, j, k);
+```
+
+###### Default Values in Destructuring Arrays
+
+This technique is helpful when dealing with APIs, to avoid getting `undefined`
+
+```javascript
+const [p = 1, q = 1, r = 1] = [8, 9];
+console.log(p, q, r);
+```
+
+#### 110. Destructuring Object
+
+We use `{}` to destructure object.
+
+Because order does not matter, we should destructure object using its `property names`.
+
+```javascript
+const { name, openingHours, categories } = restaurant;
+console.log(name, openingHours, categories);
+```
+
+###### Change Variable Names
+
+We can also have a different variable name here. Using `:`.
+
+```javascript
+const {
+  name: restaurantName,
+  openingHours: hours,
+  categories: tags,
+} = restaurant;
+
+console.log(restaurantName, hours, tags);
+```
+
+###### Default Values in Destructuring Object
+
+```javascript
+const { menu = [], starterMenu: starters = [] } = restaurant;
+console.log(menu, starters);
+```
+
+###### Mutating Variables
+
+```javascript
+let a = 111;
+let b = 999;
+const obj = { a: 23, b: 7, c: 24 };
+// {a, b} = obj will not work, because {} represents a code block
+({ a, b } = obj);
+console.log(a, b);
+```
+
+###### Nested objects
+
+```javascript
+const openingHours = {
+  thu: {
+    open: 12,
+    close: 22,
+  },
+  fri: {
+    open: 11,
+    close: 23,
+  },
+  sat: {
+    open: 0, // Open 24 hours
+    close: 24,
+  },
+};
+
+const {
+  fri: { open: o, close: c },
+} = openingHours;
+
+console.log(o, c);
+```
+
+###### Destructuring Object in Function Arguments
+
+```javascript
+const restaurant = {
+...
+  // destructure object passed as argument here
+  // with default values
+  orderDelivery: function ({ starterIndex = 1, mainIndex =0, time, address }) {
+    console.log(
+      `Order receieved!
+      ${this.starterMenu[starterIndex]} and ${this.mainMenu[mainIndex]}
+      will be delivered to ${address} and ${time}`,
+    );
+  },
+};
+
+// Prepare object that will be passed into function here
+const foodOrder1 = {
+  time: '22:30',
+  address: 'Via del Sole, 21',
+  mainIndex: 2,
+  starterIndex: 2,
+};
+
+restaurant.orderDelivery(foodOrder1); // here pass one object only
+```
+
+#### 111. The Spread Operator (...)
+
+`Spread Operator` takes all elements individually from the old array.
+
+It is useful when
+
+- shallow copies
+- creating new array
+- Pass elements into a function
+
+```javascript
+const arr = [7, 8, 9];
+// Imagine that we would like to make a new array base on arr, with 1 and 2 at the beginning
+const badNewArr = [1, 2, arr[0], arr[1], arr[2]];
+console.log(badNewArr);
+
+const goodNewArr = [1, 2, ...arr];
+const copyNewArr = [...arr];
+console.log(goodNewArr);
+console.log(copyNewArr);
+
+// It is also useful if we would like to pass elements into a fuction individually
+console.log(...arr);
+```
+
+Spread operator has two forms:
+
+1. `Iterable spread` (e.g. [...iterable]) — requires an iterable (arrays, strings, maps, sets).
+2. `Object spread` (e.g. {...obj}) — works on plain objects by copying enumerable properties.
+
+###### Iterable Spread
+
+```javascript
+// Iterables: arrays, strings, maps, sets, NOT objects
+const str = "Jones";
+const letters = [...str];
+console.log(letters);
+```
+
+###### Passing Arguments using Iterable Spread
+
+```javascript
+const restaurant = {
+  orderPasta: function (ing1, ing2, ing3) {
+    console.log(`Here is your delicious pasta with ${ing1}, ${ing2}, ${ing3}`);
+  },
+};
+
+const ingredents = ["a", "b", "c"];
+restaurant.orderPasta(...ingredents);
+```
+
+###### Object Spread
+
+```javascript
+const RestaurantCopy = { ...restaurant };
+const newRestaurant = { ...restaurant, founder: "Guiseppe" };
+```
+
+#### 112. Rest Pattern and Parameters
+
+`Rest Pattern` does the opposite of spread operator. It is to pack elements into an array.
+
+- Note, the rest element should be the last element
+- Rest Pattern works in destructuring an array
+
+###### Rest Pattern in Array
+
+```javascript
+// SPREAD, because on the RIGHT side of =
+const arr = [1, 2, ...[3, 4]];
+
+// REST, because on the LEFT side of =
+const [a, b, ...others] = [1, 2, 3, 4, 5];
+
+// other = [3, 4, 5]
+console.log(arr, a, b, others);
+```
+
+###### Rest Pattern in Object
+
+```javascript
+const { sat, ...weekdays } = restaurant.openingHours;
+console.log(sat, weekdays);
+```
+
+###### Rest Pattern in Function
+
+```javascript
+const add = function (...numbers) {
+  let sum = 0;
+  for (let i = 0; i < numbers.length; i++) {
+    sum += numbers[i];
+  }
+  console.log(sum);
+};
+
+add(2, 3, 5);
+
+// Rest works as the opposite of spread
+const newNumbers = [2, 3, 5];
+add(...newNumbers);
+```
+
+#### 113. Short Circuiting (&& and ||)
+
+Logic operators have been used in boolean values, however, they can alos used in `non-boolean` values.
+
+###### &&
+
+```javascript
+// use in ANY datatype, and return ANY datatype
+// shortciruiting of || will return the first truthy value, or the last falsy value if all values are falsy
+console.log(3 || "Jones");
+console.log("" || "Mike");
+console.log(undefined || 0 || "" || "Hello" || 23 || null); // will return 'Hello'
+```
+
+- It is useful when we want to set a default value but not sure about ig it is absent
+
+```javascript
+const restaurant = {};
+
+const guest1 = restaurant.numGuests || 10; // here, restaurant.numGuests is undefined, so 10 is returned
+console.log(guest1);
+```
+
+###### ||
+
+```javascript
+// shortciruiting of && will return the first falsy value, or the last truthy value if all values are true
+console.log(0 && "Jonas"); // will return 0
+console.log(7, "Jonas"); // will return 'Jonas'
+
+console.log("Hello" && 23 && null && "Jonas"); // will return null
+```
+
+```javascript
+// Practical Examples
+if (restaurant.orderPizza) {
+  restaurant.orderPizza();
+}
+
+// The if statement can be replaced by this line below
+restaurant.orderPizza && restaurant.orderPizza(); // only executed when restaurant has the property of orderPizza
+```
+
+######
+
+#### 114. The Nullish Coalescing Operator (??)
+
+`Nullish value` is basically falsy values without 0 and ''.
+
+```javascript
+const restaurant = {
+  numGuests: 0,
+};
+
+// Here, we want to set a default value of 10, when the property of numGuest does not exist
+// However, shortcircuiting of || can not do this job
+
+// || shortciruiting
+const guest1 = restaurant.numGuests || 10; // will return 10, which we do not want
+
+// Nullish: null and undefined (NOT 0 or '')
+const guest2 = restaurant.numGuests ?? 10; // will return 0
+console.log(guest1, guest2);
+```
