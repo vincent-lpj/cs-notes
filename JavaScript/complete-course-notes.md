@@ -2935,3 +2935,489 @@ const guest1 = restaurant.numGuests || 10; // will return 10, which we do not wa
 const guest2 = restaurant.numGuests ?? 10; // will return 0
 console.log(guest1, guest2);
 ```
+
+#### 115. Logical Assignment Operators
+
+###### Logical or Assignment Operator
+
+`||=`, `??=`
+
+```javascript
+// Short-circuiting
+// rest1.numGuest = rest1.numGuest || 10; // the value is 20 because rest1 do have numGuest
+// rest2.numGuest = rest2.numGuest || 10; // the value is 10 and rest2 is assigned with a default value
+
+// Logical Assignment Operators
+// ||= assign a value to a variable when it is falsy
+// However, it also handles 0 as a not valid number
+// rest1.numGuest ||= 10;
+// rest2.numGuest ||= 10;
+
+// Logical Nullish Coalescing Operator (??)
+// ??= assign a value to a variable when it is nullish
+rest1.numGuest ??= 10;
+rest2.numGuest ??= 10;
+
+console.log(rest1, rest2);
+```
+
+###### Logical and Assignment Operator
+
+`&&=`
+
+```javascript
+// rest1.owner = rest1.owner && '<ANONYMOUS>'; // will be undefined because it does not exist
+// rest2.owner = rest2.owner && '<ANONYMOUS>'; // will be initialized as '<ANONYMOUS>'
+
+rest1.owner &&= "<ANONYMOUS>";
+rest2.owner &&= "<ANONYMOUS>";
+
+console.log(rest1, rest2);
+```
+
+#### 116. CHALLENGE #1
+
+#### 117. Looping Arrays: The for-of Loop
+
+Regular loops requires a lot of settings such as `let i =0; i < arr.length; i++`.
+
+We can have another way to loop arrays, whihc is `for-of` loop.
+
+- However, get index is not esay in for-of loop, `arr.entries()`, whihc is `iterator` is needed here.
+
+```javascript
+const newArry = ["Jonas", "Mike", "Mikkey"];
+for (let i = 0; i < newArry.length; i++) {
+  console.log(newArry[i]);
+}
+
+for (const item of newArry) console.log(item);
+for (const item of newArry.entries()) console.log(item); // iterator will return like [[0, 'Jonas']...]
+for (const [i, el] of newArry.entries()) console.log(i, el); // so, we can use destruction of array here
+```
+
+#### 118. Enhancing Object Literals
+
+###### ES6 enhanced object literal
+
+ES6 add three convinient way to add properties to an object.
+
+```javascript
+const menu = ["pizza", "coffee", "breadstick"];
+const weekdays = ["mon", "tue", "wed", "thu", "fri"];
+
+const restaurant = {
+  name: "La Piazza",
+  // 1. object can include property only by referring to its name
+  // menu: menu,
+  menu,
+  // 2. object can include funnction without function keyword
+  // orderMeal: function (num) {
+  //   console.log(`Meals ordered: ${this.menu[num]}`);
+  // },
+  orderMeal(num) {
+    console.log(`Meals ordered: ${this.menu[num]}`);
+  },
+  openningHour: {
+    // 3. property name can be computed and dynamic
+    [weekdays[0]]: {
+      open: 0,
+      close: 24,
+    },
+  },
+};
+
+console.log(restaurant);
+restaurant.orderMeal(1);
+```
+
+#### 119. Optional Chaining (?.)
+
+This is to solve the problem that we meet during dealing with deeply nested objects.
+
+###### Optional Chaining and Property
+
+```javascript
+// Here, we try to get the value of open hour of monday
+// but we are not sure that if it exists or not
+// console.log(restaurant.openningHour.sat.open); // this will return an error
+
+// here is the solution using if
+if (restaurant.openningHour && restaurant.openningHour.sat) {
+  console.log(restaurant.openningHour.sat.open);
+}
+
+// here is the solution using optional chaining
+console.log(restaurant.openningHour.sat?.open); // undefined will be returned
+console.log(restaurant?.openningHour?.sat?.open); // even if more properties can be checked
+
+for (const day of weekdays) {
+  console.log(day);
+  const open = restaurant.openningHour[day]?.open;
+  if (open != undefined) console.log(`On ${day}, we open at ${open}`);
+}
+```
+
+###### Optional Chaining and Method
+
+```javascript
+restaurant.orderMeal?.(1);
+```
+
+###### Optional Chaining and Array
+
+```javascript
+const users = [{ name: "Jonas", email: "hello@jonas.io" }];
+// only access name when users[1] exists and if not, return undefine and move to the message on the right
+console.log(users[1]?.name ?? `Name does not exist in index 1`);
+```
+
+#### 120. Looping Object: Object Keys, Values, and Entries
+
+We looped `arrays`, which are `iterables`, now, we will loop object.
+
+However, object is not iterable.
+
+`property names` can be also called `keys`
+
+`Object.keys()` function is used here.
+
+```javascript
+// Property names / keys
+const properties = Object.keys(restaurant.openningHour);
+console.log(properties);
+
+for (const day of Object.keys(restaurant.openningHour)) {
+  console.log(day);
+}
+
+// Property Values
+const values = Object.values(restaurant.openningHour);
+console.log(values);
+
+// Entries
+// note, different with arrays, entries is not a method of object
+const entries = Object.entries(restaurant.openningHour); // object.entries returns an array
+console.log(entries);
+
+for (const [key, { open, close }] of entries) {
+  console.log(`On ${key}, we open at ${open}, and close at ${close}`);
+}
+```
+
+#### 122. Sets
+
+In the past, JavaScript has very little data structures, only `array` and `object`.
+
+But in ES6, `sets` and `maps` are created in JavaScript.
+
+A set is a `collection of unique values`.
+
+```javascript
+// Set is iterable
+const orderSet = new Set(["Pasta", "Pizza", "Pizza", "Pasta", "Risotto"]); // an iterable is expected here in Set()
+console.log(orderSet); // JS engine will automatically remove duplicates
+
+console.log(orderSet.size); // not length
+console.log(orderSet.has("Bread"));
+
+// The sequence is irrelavant in set
+orderSet.add("Garlic Bread");
+orderSet.delete("Risotto");
+console.log(orderSet);
+// orderSet.clear(); // remove all elements
+
+// Retrieve element in set
+// You can not retrieve element from set
+
+// Loop sets
+for (const order of orderSet) {
+  console.log(order);
+}
+```
+
+###### Use Case of Set
+
+If we would like to know how many unique value is here in an array.
+
+```javascript
+const staff = ["Waiter", "Chef", "Waiter", "Manager", "Chef", "Waiter"];
+const staffUnique = new Set(staff);
+console.log(staffUnique.size);
+```
+
+#### 123. New Operation to Make Sets Useful
+
+Nowadays, sets become more and more useful.
+
+Here are some more methods to make sets incredibly useful now.
+
+`intersection`, `union`, `difference`, `symmetricDifference`
+
+```javascript
+const italianFoods = new Set([
+  "pasta",
+  "gnocchi",
+  "tomatoes",
+  "olive oil",
+  "garlic",
+  "basil",
+]);
+
+const mexicanFoods = new Set([
+  "tortillas",
+  "beans",
+  "rice",
+  "tomatoes",
+  "avocado",
+  "garlic",
+]);
+
+const commonFoods = italianFoods.intersection(mexicanFoods);
+console.log(commonFoods);
+
+const italianMexicanFusion = italianFoods.union(mexicanFoods);
+console.log(italianMexicanFusion);
+
+// We can achieve the effort of union by code below
+const x = new Set([...italianFoods, ...mexicanFoods]);
+console.log(x);
+
+const uniqueItalianFoods = italianFoods.difference(mexicanFoods); // only return unique values in italian food
+console.log(uniqueItalianFoods);
+
+const uniqueItalianAndMexicanFoods =
+  italianFoods.symmetricDifference(mexicanFoods);
+console.log(uniqueItalianAndMexicanFoods);
+```
+
+#### 124. Maps: Fundamentals
+
+Map is a data structure we use to map data to keys.
+
+Key in `map` can be any type, however, keys in object is strings.
+
+```javascript
+const rest = new Map();
+rest.set("name", "Classico Italiano");
+rest.set(1, "Firenze, Italy");
+console.log(rest.set(2, "Lisbon, Portugal"));
+
+// Because set will return the map itself
+// We can chain this method
+rest
+  .set("Categories", ["Italian", "Pizzeria"])
+  .set("open", 11)
+  .set("close", 23)
+  .set(true, "We are open :D")
+  .set(false, "We are closed");
+
+console.log(rest);
+
+// Retreiving properties using .get() method
+console.log(rest.get("name"));
+
+// Using the boolean value keys
+const time = 21;
+console.log(rest.get(time > rest.get("open") && time < rest.get("close"))); // this will return: We are open :D
+
+console.log(rest.has("Categories")); // true
+rest.delete(2);
+console.log(rest.size); // 7
+
+rest.clear();
+console.log(rest);
+```
+
+###### Map with Array as its key
+
+```javascript
+const arrKey = [1, 2];
+rest.set(arrKey, "Test");
+console.log(rest);
+console.log(rest.get(arrKey));
+```
+
+#### 125. Maps: Iteration
+
+###### Fundamentals
+
+```javascript
+// The  structure of arguments in Map() function is similar to Object.entries()
+// which is key, value pairs
+const question = new Map([
+  ["question", "What is the best programming language in the world?"],
+  [1, "C"],
+  [2, "Java"],
+  [3, "JavaScript"],
+  ["correct", 3],
+  [true, "Correct!"],
+  [false, "Try Again!"],
+]);
+
+console.log(question);
+```
+
+###### From Object to Map
+
+```javascript
+const openningHour = {
+  MouseEvent: {
+    open: 0,
+    close: 24,
+  },
+  fri: {
+    open: 0,
+    close: 24,
+  },
+};
+
+const hoursMap = new Map(Object.entries(openningHour));
+console.log(hoursMap);
+```
+
+#### 126. Summary: Which Data Structure to Use?
+
+Basically, we have 3 sources of data.
+
+- From the program itself: Data that is directly written in the source code.
+- From the UI: Data input from data in the DOM
+- From external sources: Web API, etc.
+
+Simplily, if we need a `simple list`, use arrays or sets, and if we use `key/value pairs`, use object or maps.
+
+###### Array vs. Set
+
+Array is used when you need ordered list of values.
+
+Use set only when:
+
+- you need to work with unique values, exclude duplicate from array
+- high-performance is really important
+
+###### Object vs. Map
+
+Object has been the traditional `key/value` store, and it is easier to write and access values with `.` and `[]`.
+
+- Use when you want to include `function` (method)
+- use when working with `JSON`
+
+Map can have any data type, easy to iterate and compute size (equivalent to Python dictionary?)
+
+- use when you simply need to map `key` to `values`
+- use when you need keys that are `not` strings.
+
+###### Data from Web API
+
+In most of cases, web API returns JSON, which is in line with JS's object and array.
+
+#### 128. Working with Strings - Part 1
+
+###### String Basics
+
+```javascript
+const airline = "TAP Air Portugal";
+const plane = "A320";
+
+console.log(plane[0]); // indexing strings
+
+console.log(plane.length); // length of strings
+console.log(airline.indexOf("r")); // search for a character, first apperence
+console.log(airline.lastIndexOf("r")); // search for a character, last apperence
+
+console.log(airline.slice(4)); // slicing strings
+console.log(airline.slice(4, 7));
+```
+
+#### 129. Working with String - Part 2
+
+###### Simple String Method
+
+```javascript
+const airline = "TAP Air Portugal";
+
+// Dealing with character cases
+console.log(airline.toLowerCase());
+console.log(airline.toUpperCase());
+
+// Replacing
+const priceGB = "288,97€";
+const priceUS = priceGB.replace("€", "$").replace(",", ".");
+console.log(priceUS);
+
+// Trimming
+const email = "hello@jonas.io";
+const loginEmail = "  Hello@Jonas.Io \n";
+
+const normalizedEmail = loginEmail.toLowerCase().trim();
+console.log(`Normalized Email: ${normalizedEmail}`);
+
+console.log(email === normalizedEmail);
+
+// Boolean
+const plane = "Airbus A320neo";
+console.log(plane.includes("A320"));
+console.log(plane.endsWith("neo"));
+
+if (plane.startsWith("Airbus") && plane.endsWith("neo")) {
+  console.log("Part of the NEW Airbus family");
+}
+```
+
+###### Regular Expression
+
+```javascript
+const announcement =
+  "All passengers come to boarding door 23. Boarding door 23!";
+console.log(announcement.replace(/door/g, "gate"));
+console.log(announcement.replaceAll("door", "gate"));
+```
+
+#### 130. Working with Strings - Part 3
+
+###### Split and Join
+
+Spliting string based on a certain devider string
+
+Returns an `array`
+
+```javascript
+console.log("a+very+nice+string".split("+")); //['a', 'very', 'nice', 'string']
+
+const [firstname, lastname] = "Jonas Schmedtmann".split(" ");
+console.log(firstname, lastname);
+
+// join() method will join strings in an array, separated by argument string
+const newName = ["Mr", firstname, lastname.toUpperCase()].join(" "); // Mr Jonas SCHMEDTMANN
+```
+
+###### Padding
+
+Pads the current string with a given string
+
+```javascript
+// Padding
+const message = "Go to gate 23";
+console.log(message.padStart(25, "+"));
+console.log(message.padStart(25, "+").padEnd(35, "-"));
+
+const maskCreditCard = function (number) {
+  const str = String(number);
+  const last = str.slice(-4);
+  return last.padStart(str.length, "*");
+};
+
+console.log(maskCreditCard(332325812976));
+```
+
+###### Repeating
+
+Repeat the string by n times.
+
+```javascript
+// Repeat
+const message2 = "Bad Weather... All Departures Delayed";
+console.log(message2.repeat(5));
+```
+
+#### 132. String Method Practice
