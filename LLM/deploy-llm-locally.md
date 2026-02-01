@@ -450,12 +450,289 @@ print(response.choices[0].message.content)
 
 LM studio also offer another API that has different endpoints than the OpenAI compatible one, such as **REST API**.
 
+For example, the endpoint for chat is `api/v1/chat`, method is `POST`,
+
+and request body should have `model` and `input`.
+
+```bash
+curl http://localhost:1234/api/v1/chat \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "google/gemma-3-12b",
+    "input": "Hi, is everything going well?",
+    "temperature": 0.7
+  }'
+
+```
+
 #### 38. Using the Python / JavaScript SDKs
 
 [LM Studio Python SDK](https://lmstudio.ai/docs/python)
 
 [LM Studio JavaScript (TypeScript) SDK](https://lmstudio.ai/docs/typescript)
 
-## Ollama Deep Dive
+## 4. Ollama Deep Dive
+
+#### 39. Module Introduction
+
+LM Studio is a very user-friendly tool, with beautiful GUI.
+
+However, we have another tool, a more advanced solution, that does not come with a GUI, but a CLI.
+
+We will explore [Ollama](https://ollama.com/) in this section.
+
+One of the advantages of Ollama, is that it give you a lot of `options` to customize your LLMs.
+
+#### 40. Install & Starting Ollama
+
+```bash
+# Test if ollama is installed correctly
+ollama
+```
+
+#### 41. Finding Usable Open Models
+
+###### List of Available Commands
+
+```bash
+#Available Commands:
+# serve    Start ollama
+# create   Create a model
+# show    Show information for a model
+# run     Run a model
+# stop    Stop a running model
+# pull    Pull a model from a registry
+# push    Push a model to a registry
+# signin   Sign in to ollama.com
+# signout   Sign out from ollama.com
+# list    List models
+# ps     List running models
+# cp     Copy a model
+# rm     Remove a model
+# launch   Launch an integration with Ollama
+# help    Help about any command
+```
+
+###### Ways to Find Available Models
+
+[Ollama Model Catelog](https://ollama.com/search)
+
+This catelog generally suports all LLMs you can find in Hugging Face.
+
+#### 42. Running Open LLMs Locally via Ollama
+
+For example, we can have a look at the page of [Gemma3](https://ollama.com/library/gemma3).
+
+By default, Ollama only has **quantized** versions of LLMs.
+
+###### Models
+
+Here we can find some basic info of the model, for example, quantization, etc.
+
+###### Parameters
+
+In parameters, we can get the default settings of the model
+
+```json
+{
+  "stop": ["<end_of_turn>"],
+  "temperature": 1,
+  "top_k": 64,
+  "top_p": 0.95
+}
+```
+
+###### CLI
+
+```bash
+# ollama run model-name:tag
+ollama run gemma3:12b-it-qat  # run and download model if not exist locally
+ollama pull gemma3:12b-it-qat  # download without run it
+```
+
+###### Running Models
+
+Ollama supports several slash command, use `/?` to see what commmands are supported.
+
+```bash
+#Available Commands:
+#  /set            Set session variables
+#  /show           Show model information
+#  /load <model>   Load a session or model
+#  /save <model>   Save your current session
+#  /clear          Clear session context
+#  /bye            Exit
+#  /?, /help       Help for a command
+#  /? shortcuts    Help for keyboard shortcuts
+
+#Use """ to begin a multi-line message.
+#Use /path/to/file to include .jpg, .png, or .webp images.
+```
+
+You can directly interact with local models in commmand lines.
+
+```json
+hi, how are you?
+```
+
+#### 43. Adding a GUI with Open WebUI
+
+Ollama do not have a GUI (now maybe we have?), so we can have an alternative of [Open WebUI](https://docs.openwebui.com/).
+
+Open WebUI requires Docker.
+
+Open WebUI give you a web-based AI chat experience, based on your locally installed LLMs.
+
+###### Run Open WebUI with Docker
+
+```bash
+docker run -d -p 3000:8080 -v open-webui:/app/backend/data --name open-webui ghcr.io/open-webui/open-webui:main
+```
+
+Then, we can register an admin account (email can be fake) to access local LLMs.
+
+#### 44. Dealing with Multiline Message & Image Input (Multimodality)
+
+###### Multiline Messages in CLI
+
+Use triple-double quote to send multiline messages
+
+```bash
+"""
+
+"""
+```
+
+​
+
+###### Handle Image Input
+
+When sending LLM images, you can identify the absolute path of this image.
+
+Ollama will automatically find the picture and deal with it.
+
+```bash
+Ok, I will send you this /Users/medjed08/Downloads/car-wash-image.jpg
+Added image '/Users/medjed08/Downloads/car-wash-image.jpg'
+```
+
+#### 45. Inspecting Models & Extracting Model Information
+
+Using `/show` command, you can have a look at the model details.
+
+```bash
+#/show
+#Available Commands:
+#  /show info         Show details for this model
+#  /show license      Show model license
+#  /show modelfile    Show Modelfile for this model
+#  /show parameters   Show parameters for this model
+#  /show system       Show system message
+#  /show template     Show prompt template
+```
+
+###### Inpecting Model Details using /show Command
+
+Model info here shows exactly the same message in [Ollama's Model page](https://ollama.com/library/gemma3:12b-it-qat).
+
+```bash
+#/show info
+#  Model
+#    architecture        gemma3
+#    parameters          12.2B
+#    context length      131072
+#    embedding length    3840
+#    quantization        Q4_0
+
+#  Capabilities
+#    completion
+#    vision
+
+#  Parameters
+#    stop           "<end_of_turn>"
+#    temperature    1
+#    top_k          64
+#    top_p          0.95
+```
+
+#### 46. Editing System Messages & Model Parameters
+
+`/set` command can help us configure models.
+
+```bash
+#/set
+#Available Commands:
+#  /set parameter ...     Set a parameter
+#  /set system <string>   Set system message
+#  /set history           Enable history
+#  /set nohistory         Disable history
+#  /set wordwrap          Enable wordwrap
+#  /set nowordwrap        Disable wordwrap
+#  /set format json       Enable JSON mode
+#  /set noformat          Disable formatting
+#  /set verbose           Show LLM stats
+#  /set quiet             Disable LLM stats
+#  /set think             Enable thinking
+#  /set nothink           Disable thinking
+```
+
+`/set system` helps us configure system prompt.
+
+```bash
+# >>> /set system You are a energetic it advisor
+# Set system message.
+# >>> tell me something about you.
+# Alright! *Bounces with enthusiasm* Hello! I'm Spark, your super-charged IT advisor!
+```
+
+`/set parameter` helps us configure model parameters.
+
+For example, `top_k`, `top_p`, `min_p`, `num_ctx`.
+
+#### 47. Saving & Loading Sessions and Models
+
+Basically, the system prompt and chat history will be lost if you exit this model.
+
+For example,
+
+```bash
+# ollama run gemma3:12b-it-qat
+# >>> /set system you are a talented dancer
+# Set system message.
+# >>> hi, who are you?
+# Greetings! I'm a large language model, but you could say I'm also a talented dancer...
+# in the realm of words, that is. I can weave stories, mimic styles, and even express
+# rhythm and movement through language. Think of me as a dancer who uses words instead of
+# steps! 🩰✨ What can I do for you today?
+# >>> /bye
+
+# -----
+# If we enter this model again, we would lose all settings and history we have
+
+# ollama run gemma3:12b-it-qat
+# >>> hi, who are you?
+# Hi there! I'm Gemma, an open-weights AI assistant. I'm a large language model created by
+# the Gemma team at Google DeepMind. Essentially, I'm designed to take text and images as
+# input and provide text-based responses.
+# It's nice to meet you! What can I do for you today?
+```
+
+However, we can save the session data, including system prompt, and chat history, by using `/save <model>` and `load <model>`
+
+####
+
+#### 48. Managing Models
+
+###### Show Models in Use
+
+`ollama ps` helps us to know which model is running in the back.
+
+###### List of Models
+
+Using `ollama list` will list all models that you have, including those saved using `/save <model-name>`.
+
+Note: Ollama will only save the difference, instead of the whole model once again.
+
+Models shown in this list can be run using `ollama run`.
 
 ## Course Roundup
