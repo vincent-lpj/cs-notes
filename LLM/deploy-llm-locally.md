@@ -6,7 +6,7 @@
 
 [LM Studio](https://lmstudio.ai/)
 
-## Introduction
+## 1. Introduction
 
 #### 1. Welcome To The Course
 
@@ -92,7 +92,7 @@ Llama: somewhat permissive license, allow private & commercial use with limitati
 
 Gemma: somewhat permissive license, allow private & commercial use with special requirements
 
-## Understanding Hardware Requirements & Quantizetion
+## 2. Understanding Hardware Requirements & Quantizetion
 
 #### 10. Module Introduction
 
@@ -144,7 +144,7 @@ Preferably, you should have GPU and VRAM, but CPU and RAM will also work.
 
 Hugging Face, as well as LM studio can help you find out if a model is suitable for your local machine.
 
-## LM Studio Deep Dive
+## 3. LM Studio Deep Dive
 
 #### 15. Module Introduction
 
@@ -293,7 +293,168 @@ Here, You can turn off the GPU usage.
 
 `Context length` is the maximum amount of data—measured in tokens—a model can process, analyze, and "remember" at one time, acting as its immediate working memory
 
-Note: the context length also takes up your memory, so we do not always use the maximum value.
+Note: the context length also takes up your memory, so we **do not** always use the maximum value. For example, if we increase the context length from about 4k to 20k in Gemma 3 12B Instruct QAT model, the memory usage will increase from about 9gb to 15gb.
+
+###### GPU Offload
+
+Usually, we maxmize GPU offload to allow GPU to take over all the jobs.
+
+#### 30. Using Flash Attention
+
+###### Flash Attention
+
+This will decrease the memory usage in some models.
+
+###### K and V Cache Quantization Type
+
+#### 31. Working with Structured Outputs
+
+###### Structured Output
+
+This option force model to generate a structured outputs, `JSON`, at the end of a generation.
+
+This is extremely useful when the output is used in next step of application.
+
+Structured output can be defined as a [JSON Schema](https://json-schema.org/learn/miscellaneous-examples), in Model Parameters.
+
+###### Example
+
+For example, we attach a PDF file of financial report, and give LLM this instructions:
+
+> Return the key data as JSON
+
+Then, we define Structure Output as `JSON schema` like below:
+
+```json
+{
+  "$id": "https://example.com/person.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Financial Data",
+  "type": "object",
+  "properties": {
+    "year": {
+      "type": "string",
+      "description": "The year of the report"
+    },
+    "revenue": {
+      "type": "integer",
+      "description": "The total revenue of that year"
+    },
+    "Operating_Income": {
+      "description": "Operating Income of the year",
+      "type": "integer"
+    }
+  }
+}
+```
+
+LLM would generate answers like this
+
+```json
+{
+  "year": "2021",
+  "revenue": 6875,
+  "Operating_Income": 1390
+}
+```
+
+#### 32. Using Local LLMs for Code Generation
+
+Local LLMs can also help you generate code.
+
+#### 33. Content Generation & Few Shot Prompting (Prompt Engineering)
+
+###### Few Shot Prompting
+
+Few Shot Prompting means that you provide **some examples** for a given task.
+
+> You are an expert LinkedIn post generator.
+>
+> Here are some example LinkedIn posts I wrote in the past.
+>
+> <linkedin-article-1>
+> ...
+>
+> <linkedin-article-2>
+> ...
+>
+> Above, you see two example LinkedIn posts I wrote in the past.
+>
+> Use the same writing style as shown in those posts, but DON'T use the content.
+>
+> Instead, using the above shown writing styles, generate a new LinkedIn post about "...".
+>
+> The post should cover the following core concepts & topics:
+> ...
+
+#### 34. Onwards To Programmatic Use
+
+Actually, you can use LM Studio **programatically**, which means you can build your own application using locally deployed LLMs.
+
+LM studio, just like OpenAI, exposes a locally running large language model API server.
+
+#### 35. LM Studio & Its OpenAI Compatibility
+
+###### Ways to Access Locally Deployed LLMs
+
+Firstly, `developer mode` should be on, ports can be defined in `settings` besides.
+
+In `Server` page, switch the server to **running**, and you will find a message in the developer logs below.
+
+> 2026-02-01 16:39:50 [INFO] Just-in-time model loading active.
+
+Urls, or api endpoints, and domain are shown below.
+
+**Important**: LM studio server can be reached using **OpenAI SDK**.
+
+```python
+from openai import OpenAI
+
+client = OpenAI(
++    base_url="http://localhost:1234/v1"
+)
+
+# ... the rest of your code ...
+
+```
+
+#### 36. More Code Examples
+
+```json
+from openai import OpenAI
+
+client = OpenAI(
+  base_url="http://localhost:1234/v1",
+  api_key="something-doesnt-matter",
+)
+
+response = client.chat.completions.create(
+  model="gemma-3-12b-it-qat",
+  messages=[
+    {
+      "role": "system",
+      "content": "You are a helpful and friendly assistant."
+    },
+    {
+      "role": "user",
+      "content": "What is the meaning of life?"
+    }
+  ],
+  temperature=0.7,
+)
+
+print(response.choices[0].message.content)
+```
+
+#### 37. Diving Deeper into the LM Studio APIs
+
+LM studio also offer another API that has different endpoints than the OpenAI compatible one, such as **REST API**.
+
+#### 38. Using the Python / JavaScript SDKs
+
+[LM Studio Python SDK](https://lmstudio.ai/docs/python)
+
+[LM Studio JavaScript (TypeScript) SDK](https://lmstudio.ai/docs/typescript)
 
 ## Ollama Deep Dive
 
