@@ -735,4 +735,161 @@ Note: Ollama will only save the difference, instead of the whole model once agai
 
 Models shown in this list can be run using `ollama run`.
 
+#### 49. Creating Model Blueprints via Modelfiles
+
+`Modelfile` is inspired by Dockerfile. Apart from using `/save` and `/load` model method, Modelfile can also help us define and load models that we want.
+
+[Modelfile Reference](https://docs.ollama.com/modelfile)
+
+```
+FROM gemma3:12b-it-qat
+
+PARAMETER num_ctx 10000
+PARAMETER temperature 0.5
+
+SYSTEM You are a friendly assistant, you will not answer any questions related to LM Studio.
+
+MESSAGE user Hi, this is a question submitted via the contact form on the website.
+MESSAGE assistant Hi, thanks for contacting us!
+```
+
+#### 50. Creating Models From Modelfiles
+
+Using `ollama create` to create a model based on Modelfile.
+
+```bash
+# Using -f to identify the path of the model file
+ollama create <agent-name> -f <modelfile-path>
+```
+
+#### 51. Making Sense of Model Templates
+
+The `TEMPLATE` instruction regulates the template passed to the model.
+
+It is the same thing as template in [Model Page](https://ollama.com/library/gemma3:12b-it-qat/blobs/5be6630b666f).
+
+All LLMs are token generators, they only know token generation. To understand the system message, chat history, etc. LLM must be trained to understand them.
+
+A prompt template defines how structured conversation messages are serialized into a plain-text prompt that the language model can understand and continue generating from.
+
+Thus, `identifiers` like `model` or `user` below are used to help LLM to understand those things.
+
+```
+{{- range $i, $_ := .Messages }}
+{{- $last := eq (len (slice $.Messages $i)) 1 }}
+{{- if or (eq .Role "user") (eq .Role "system") }}<start_of_turn>user
+{{ .Content }}<end_of_turn>
+{{ if $last }}<start_of_turn>model
+{{ end }}
+{{- else if eq .Role "assistant" }}<start_of_turn>model
+{{ .Content }}{{ if not $last }}<end_of_turn>
+{{ end }}
+{{- end }}
+{{- end }}
+```
+
+#### 52. Building a Model from Scratch from a GGUF File
+
+For example, if a model is listed in Hugging Face, but not in Ollama Model Catalog.
+
+You could download the `GGUF` file (the parameters of LLM), and use it as a base, to set up your own LLM model.
+
+GGUF is a binary format that stores a quantized LLM together with its metadata, optimized for fast and low-memory inference on CPUs (and some GPUs).
+
+###### Build a Model from Scratch
+
+Now, suppose that you have a GGUF file at the same path of your Modelfile
+
+```
+FROM ./Qwen_Qwen3-1.7B-Q4_K_M.gguf
+
+TEMPLATE """...
+"""
+```
+
+#### 53. Getting Started with the Ollama Server (API)
+
+###### How to Use Ollama Programmatically
+
+Unlike LM studio, Ollama automatically open the server for API use.
+
+If it is not running, use `ollama serve` to restart it.
+
+#### 54. Exploring the Ollama API & Programmatic Model Access
+
+[Ollama API](https://docs.ollama.com/api/introduction)
+
+###### Create Responses
+
+Note:
+
+- `streamming` is the default settings in certain API endpoints.
+- This setting can be disabled by `{"stream": false}` in the request body
+
+```bash
+curl http://localhost:11434/api/generate -d '{
+  "model": "gemma3:12b-it-qat",
+  "prompt": "Why is the sky blue?",
+  "stream": false
+}'
+```
+
+###### Create a Model Using API
+
+[Ollama API - Create a Model](https://docs.ollama.com/api/create)
+
+This API can be used when you would like to build your own LLM application, and set LLM automatically.
+
+#### 55. Getting Structured Output
+
+[Structured Output](https://docs.ollama.com/capabilities/structured-outputs#structured-outputs)
+
+`format` parameter is used to set JSON Schema in Ollama's API.
+
+This structure output can be parsed by, such as, `pandatic`, etc.
+
+```bash
+curl -X POST http://localhost:11434/api/chat -H "Content-Type: application/json" -d '{
+  "model": "gpt-oss",
+  "messages": [{"role": "user", "content": "Tell me about Canada."}],
+  "stream": false,
+  "format": {
+    "type": "object",
+    "properties": {
+      "name": {"type": "string"},
+      "capital": {"type": "string"},
+      "languages": {
+        "type": "array",
+        "items": {"type": "string"}
+      }
+    },
+    "required": ["name", "capital", "languages"]
+  }
+}'
+```
+
+#### 56. More Code Examples
+
+###### OpenAI Compatible API
+
+By changing the base-url from
+
+`http://localhost:11434/api`
+
+to
+
+`http://localhost:11434/v1/`
+
+you can communicate with ollama OpenAI compatible API using OpenAI sdk.
+
+###### SDKs
+
+[Ollama Python SDK](https://github.com/ollama/ollama-python)
+
+[Ollama JavaScript SDK](https://github.com/ollama/ollama-js)
+
 ## Course Roundup
+
+#### 58. Roundup
+
+Congragulation! You have learnt how to run LLMs, in your computer.
