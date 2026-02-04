@@ -356,3 +356,643 @@ Push is used by like, RabbitMQ.
   - Wasted Backend resources
 
 ###### Demo Job Status: curl and Node.js
+
+```javascript
+// Import Express and immediately create an app instance
+const app = require("express")();
+
+// In-memory object to store job progress
+// key   -> jobId
+// value -> progress percentage (0 ~ 100)
+const jobs = {};
+
+// =======================
+// Submit a new job
+// =======================
+app.post("/submit", (req, res) => {
+  // Create a job ID when the user submits a job
+  const jobId = `job:${Date.now()}`;
+
+  // Initialize the job with 0% progress
+  jobs[jobId] = 0;
+
+  // Start the background job (simulated)
+  updateJob(jobId, 0);
+
+  // Return the jobId to the client
+  // Client will use this ID later to check job status
+  res.end("\n\n" + jobId, +"\n\n");
+});
+
+// =======================
+// Check job status
+// =======================
+app.get("/checkstatus", (req, res) => {
+  // Get jobId from query string
+  // Example: /checkstatus?jobId=Job:123456
+  const jobId = req.query.jobId;
+
+  // Log current job progress (debugging purpose)
+  console.log(jobs[jobId]);
+
+  // Respond with current job progress
+  // If jobId does not exist, this will return "undefined"
+  res.end("\n\nJobStatus:" + jobs[jobId] + "%\n\n");
+});
+
+// =======================
+// Start HTTP server
+// =======================
+app.listen(8080, () => console.log("listening on 8080"));
+
+// =======================
+// Simulate background job execution
+// =======================
+function updateJob(jobId, prg) {
+  // Update progress in memory
+  jobs[jobId] = prg;
+  console.log(`updated ${jobId} to ${prg}`);
+
+  // If progress reaches 100%, stop recursion
+  if (prg == 100) return;
+
+  // Increase progress by 10 every 3 seconds
+  // setTimeout is asynchronous and non-blocking
+  this.setTimeout(() => updateJob(jobId, prg + 10), 3000);
+}
+```
+
+```bash
+npm init -y
+npm install express
+node jobs.js
+```
+
+Test using `curl`:
+
+```bash
+# Submit and get jobID
+curl -X POST http://localhost:8080/submit
+# job:17701********
+
+# Polling after submitting
+# The cost is network cost
+curl http://localhost:8080/checkstatus?jobId=job:17701********
+# JobStatus:60%
+
+curl http://localhost:8080/checkstatus?jobId=job:17701********
+# JobStatus:100%
+```
+
+#### 11. Long Polling
+
+###### Check with You Later, BUT Talk to Me Only When It's Ready
+
+Unlike regular polling, `long polling` keeps the request open on the server side and responds **only** when new data becomes available or a timeout occurs, reducing unnecessary requests.
+
+- Client send a request
+- Server responds immediately with a handle
+- Server continues to process the request
+- Client uses that handle to check for status
+- Server does **NOT** reply until it has the response
+
+###### Where request/response & polling Isn't Ideal
+
+- A request takes long time to process
+  - Upload a youtube video
+- The backend want to send notifications
+  - A user just logged in
+- Short Polling is a good but chatty
+- Meet Long polling (Kafka use it)
+
+###### Long Polling Pros and Cons
+
+- Pros
+  - Less chatty and backend friendly
+  - Client can still disconnect
+- Cons
+  - Not real time
+
+###### Demo Job Status: Check if A Job is Done
+
+```javascript
+// Import Express and immediately create an app instance
+const app = require("express")();
+
+// In-memory object to store job progress
+// key   -> jobId
+// value -> progress percentage (0 ~ 100)
+const jobs = {};
+
+// =======================
+// Submit a new job
+// =======================
+app.post("/submit", (req, res) => {
+  const jobId = `job:${Date.now()}`; // Create a unique job ID using a timestamp
+  jobs[jobId] = 0; // Initialize the job with 0% progress
+  updateJob(jobId, 0); // Start the background job (simulated)
+
+  // Return the jobId to the client
+  // The client will later use this ID for long polling
+  res.end("\n\n" + jobId + "\n\n");
+});
+
+// =======================
+// Check job status (Long Polling)
+// =======================
+app.get("/checkstatus", async (req, res) => {
+  console.log(jobs[req.query.jobId]);
+
+  // Long polling:
+  // The client sends a request, and the server intentionally
+  // delays the response until the job is completed.
+  //
+  // This simulates long polling by repeatedly checking job status
+  // and holding the HTTP request open.
+  //
+  // NOTE:
+  // This while-loop is only for demonstration purposes.
+  // In real applications, busy-waiting like this is inefficient
+  // and should be avoided.
+  while ((await checkJobComplete(req.query.jobId)) === false);
+
+  // Once the job is complete, respond to the client
+  res.end("\n\nJobStatus: Complete (" + jobs[req.query.jobId] + "%)\n\n");
+});
+
+// =======================
+// Start HTTP server
+// =======================
+app.listen(8080, () => console.log("listening on 8080"));
+
+// =======================
+// Helper for long polling condition check
+// =======================
+async function checkJobComplete(jobId) {
+  return new Promise((resolve, reject) => {
+    // If the job is not finished yet,
+    // wait for a short period before checking again
+    if (jobs[jobId] < 100) {
+      this.setTimeout(() => resolve(false), 1000);
+    } else {
+      // Job is complete, allow the long-polling request to return
+      resolve(true);
+    }
+  });
+}
+
+// =======================
+// Simulate background job execution
+// =======================
+function updateJob(jobId, prg) {
+  jobs[jobId] = prg; // Update progress in memory
+  console.log(`updated ${jobId} to ${prg}`);
+
+  if (prg === 100) return; // Stop once the job is complete
+  this.setTimeout(() => updateJob(jobId, prg + 10), 3000); // Simulate long-running work by updating progress every 3 seconds
+}
+```
+
+```bash
+curl -X POST http://localhost:8080/submit
+# job:17701********
+
+curl http://localhost:8080/checkstatus?jobId=job:17701********
+# (wait time)
+#
+#
+#
+#
+#
+# JobStatus: Complete 100%
+```
+
+#### 12. Server Sent Events
+
+###### One Request, a Very Very Long Response
+
+`Sercer Sent Events` works with request/response (HTTP).
+
+A response has start and end, it is still a request, but an unending response
+
+- Client sends a request
+- Server sends **logical events** as part of response
+- Server never writes the end of the response
+- Client parse the streams data looking for the events
+
+###### Why Using Server Sent Events
+
+- Limitation of request/response
+  - Vanilla request/response isn't ideal for notification backend
+- Client wants real time notification from backend
+  - A user just logged in
+  - A message is just received
+- Push works but restrictive
+- Server Sent Event work with Request/Response
+- Designed for HTTP
+
+###### Server Sent Events Pros and Cons
+
+- Pros
+  - Real time
+  - Compatible with Request/response
+- Cons
+  - Clients must be online
+  - Clients might not be able to handle
+  - Polling is preferred for light clients
+  - HTTP/1.1 problem (6 connections)
+
+###### Demo Job Status: Chrome & Node.js
+
+Check if a job is done with progress using SSE.
+
+Server Side: `text/event-stream`
+
+The stream never finished, everything send below is events.
+
+Client Side:`EventSource` in the broswer helps us to parse the streaming events.
+
+```javascript
+/*
+// =======================
+// Client-side (Browser)
+// =======================
+
+// Create an EventSource connection to the server
+// This sends a single HTTP request and keeps the connection open
+const sse = new EventSource("http://localhost:8888/stream");
+
+// In Chrome DevTools:
+// - The request appears under Network -> EventStream
+// - Response header shows "Content-Type: text/event-stream"
+//
+// Each message sent by the server will trigger this handler
+sse.onmessage = console.log;
+*/
+
+const app = require("express")();
+
+app.get("/", (req, res) => res.send("hello!"));
+
+// =======================
+// Server-Sent Events (SSE)
+// =======================
+//
+// When the client sends a request to /stream:
+//
+// 1. The server responds with Content-Type: text/event-stream
+// 2. The HTTP connection is NOT closed
+// 3. The server keeps writing data to the same response
+//
+// This is how SSE achieves server push over HTTP
+
+app.get("/stream", (req, res) => {
+  // Tell the browser that this response is an event stream
+  // This switches the client into "listening mode"
+  res.setHeader("Content-Type", "text/event-stream");
+
+  // Start sending events to the client
+  // Note: we do NOT call res.end()
+  send(res);
+});
+
+const port = process.env.PORT || 8888;
+
+let i = 0;
+
+// =======================
+// Event sender
+// =======================
+//
+// This function demonstrates the core idea of SSE:
+//
+// - Use res.write() instead of res.send() / res.end()
+// - Each message must end with "\n\n"
+// - The connection stays open indefinitely
+//
+// Format:
+// data: <message>\n\n
+//
+// The browser automatically parses each chunk
+// and emits a "message" event on the EventSource
+
+function send(res) {
+  // Send one SSE message to the client
+  // Each call to res.write() pushes data immediately
+  res.write("data:" + `hello from server ---- [${i++}]\n\n`);
+
+  // Schedule the next message
+  // This simulates server-side events happening over time
+  setTimeout(() => send(res), 1000);
+}
+
+// Start the HTTP server
+app.listen(port);
+console.log(`Listening on ${port}`);
+```
+
+#### 13. Publish Subscribe (Pub/Sub)
+
+###### One Publisher, Many Users
+
+In the pub/sub model, **publishers** send messages to a topic, and **subscribers** receive messages from that topic without knowing each other.
+
+###### Pub/Sub Pros and Cons
+
+- Pros
+  - Scales w/ multiple receivers
+  - Great for microservices
+  - Loose Coupling
+  - Works while clients not running
+- Cons
+  - Message delivery issues
+  - Complexity
+
+###### RabbitMQ Demo
+
+CloudAMQP
+
+#### 14. Multiplexing vs Demultiplexing (h2 proxing vs Connection Polling)
+
+###### HTTP/2, QUIC, Connection Pool, MPTCP
+
+**Multiplexing** is the process of combining multiple independent data streams into a single shared transmission channel.
+**Demultiplexing** is the reverse process of separating that shared stream back into individual streams at the receiver.
+
+###### Connection Pooling
+
+**Connection pooling** means keeping a pool of reusable connections so clients don’t need to create and destroy a connection for every request.
+
+###### Browser Connection Pool Demo
+
+Up to 6 connections in HTTP/1.1, After that we are blocked.
+
+Using the same code in long pooling example code.
+
+When we send more than 6 requests, we can see in `Network`, only 6 connections are established.
+
+The protocol here is `HTTP/1.1`.
+
+#### 15. Stateless vs Stateful
+
+###### Is State Stored in the Backend?
+
+**State** is memory that affects future behavior
+
+###### Stateful vs Stateless Backend
+
+- Stateful
+  - Stores **state** about **clients** in the memory
+  - Depends on the information being there
+- Stateless
+  - Client is **responsible** to "transfer the state" with every request
+  - May store but can safely lose it
+
+###### Stateless Backend
+
+- Stateless backend can still store data somewhere else
+- Can you restart the backend during the idle time while the client workflow continues to work?
+
+###### What Makes a Backend Stateless?
+
+- Stateless backends can store state somewhere else (database)
+- The backend remain stateless but the **system** is stateful (database dies will lose everything, in a sense, state is held in DB, not in backend memory)
+
+###### Stateless vs Stateful Protocols
+
+- TCP is stateful
+  - Sequences, Connection file descriptor
+- UDP is stateless
+  - DNS send queryID in UDP to identify queries
+  - QUIC sends connectionID to identify connections
+- Actually, you can build a stateless protocol on top of stateful one and vice versa, like HTTP on TCP, QUIC on UDP
+
+###### Is There Complete Stateless System?
+
+- Stateless systems are rare
+- Examples
+  - A backend service that relies completely on the input
+    - Check if input param is a prime number
+  - JWT (JSON Web Token)
+
+#### 16. Sidecar Pattern
+
+###### Thick Clients. Thicker Backends
+
+(to be added)
+
+## Section 3 Protocols
+
+#### 17. Protocols Intro
+
+What would you take into consideration when you design a protocol?
+
+We will explore the most popular protocols, the fundamentals, HTTP/1.1, HTTP/2, etc.
+
+#### 18. Protocol Properties
+
+###### What to Take into Account When Designing a Protocol?
+
+###### What is A Protocol?
+
+- A system that allows two parties to communicate
+- A protocol is designed with a set of **properties**
+- Depending on the purpose of the protocols
+- TCP, UDP, HTTP, gRFC, FTP
+
+###### Protocol Properties
+
+`Protocol Properties` is the most important part of a protocol.
+
+Protocol Properties define how data is structured, transmitted, and identified between communicating systems.
+
+They determine the efficiency, reliability, and usability of a protocol in real-world applications.
+
+- Data Format
+  - Text based (plain text, JSON, XML)
+  - Binary (protobuf, RESP, h2, h3)
+- Transfer Mode
+  - Message Based (UDP, HTTP)
+  - Stream (TCP, webRTC)
+- Addressing System
+  - DNS name, IP, MAC
+- Directionality
+  - Bidirectional (TCP)
+  - Unidirectional (HTTP)
+  - Full/Half duplex
+- State
+  - Stateful (TCP, gRPC, apache thrift)
+  - Stateless (UDP, HTTP)
+- Routing
+  - Proxies, Gateways
+- Flow & Congestion Control
+  - TCP (Flow & Congestion)
+  - UDP (No Control)
+- Error Management
+  - Error Code
+  - Retries and timeouts
+
+#### 19. OSI Model
+
+###### Open System Interconnection Model
+
+7 Layers each describe a specific networking component
+
+- Layer 7 - Application - HTTP/FTP/gRPC
+- Layer 6 - Presentation - Encoding, Serialization
+- Layer 5 - Session - Connection establishment, TLS
+- Layer 4 - Transport - UDP/TCP
+- Layer 3 - Network - IP
+- Layer 2 - Data link - Frames, Mac address Ethernet
+
+###### Why Do We Need a Communication Model?
+
+Without a standard model:
+
+- Your application mush have knowledge of underlying network medium
+- Upgrading network equipments becomes difficult
+
+But with a standard model:
+
+- Innovation can be done in each layer separately without affecting the rest of the models
+
+###### The OSI Layers - an Example (Sender)
+
+Example: sending a POST request to an HTTPS webpage
+
+- Layer 7 Application
+  - POST request with JSON data to HTTPS server
+- Layer 6 - Presentation
+  - Serialize JSON to flat byte string
+- Layer 5 - Session
+  - Request to establish TCP connection/TLS
+- Layer 4 - Transport
+  - Send SYN request target port 443
+- Layer 3 - Network
+  - SYN is placed an IP packet(s) and adds the source/dest IPs
+- Layer 2 - Data link
+  - Each packet goes into a single frame and adds the source/dest MAC addresses
+- Layer 1 - Physical
+  - Each frame becomes string of bits which converts into either a radio signal (wifi), electric signal (ethernet), or light (fiber)
+
+###### The OSI Layers - an Example (Receiver)
+
+Receiver computer receives the POST request the other way around
+
+- Layer 1 - Physical
+  - Redio, electric signal or light is received and converted into digital bits
+- Layer 2 - Data link
+  - The bits from Layer 1 is assembled into frames
+- Layer 3 - Network
+  - The frames from Layer 3 is assembled into IP packet
+- Layer 4 - Transport
+  - The IP packets from layer 3 are assembled into TCP segments
+  - Deals with Congestion control/flow control/retransmission in case of TCP
+  - If segment is SYN we don't need to go further into more layers as we are still processing the connection request
+- Layer 5 - Session
+  - The connection session is established or identified
+  - We only arrive at this layer when necessary (three way handshake is done)
+- Layer 6 - Presentation
+  - Deserializing flat byte strings back to JSON for the app to consume
+- Layer 7 - Application
+  - Application understand the JSON POST request and your express json or apache request receive events is triggered.
+
+###### Across Networks
+
+Client -> Switch -> Router -> Server
+
+A switch works at Layer 2 and forwards data using MAC addresses.
+
+A router works at Layer 3 and forwards data using IP addresses.
+
+A firewall works from Layer 3 to Layer 7 and controls traffic using security rules.
+
+Port numbers and protocol headers are usually NOT encrypted。
+
+- Source IP
+- Destination IP
+- Port
+- TCP headers
+
+but application data MAY be encrypted (for example with HTTPS/TLS).
+
+- HTTP URL path
+- Headers
+- Body
+- JSON
+- Passwords
+- Cookies
+
+###### The Shortcomings of The OSI Model
+
+- OSI model has too many layers which can be hard to comprehend
+- Hard to argue about which layer does what
+- Simpler to deal with layer 5-6-7 as just one layer, application
+
+###### TCP/IP Model
+
+TCP/IP model only has 4 layers
+
+- Application (Layer 5, 6, 7)
+- Transport (Layer 4)
+- Internet (Layer 3)
+- Data Link (Layer 2)
+- Physical layer is not officially covered in this model
+
+#### 24. HTTP/1.1
+
+###### Simple Web Protocol Lasts Decades
+
+Client/Server Architecture
+
+- (Client) Browser, python or javascript app, or any app that makes HTTP request
+- (Server) HTTP Web Server, e.g. IIS, Apache Tomcat, NodeJS, Python Tornado
+
+###### HTTP Request
+
+```
+Method | PATH | Protocol
+       Headers
+        Body
+```
+
+```bash
+curl -v google.com
+
+# > GET / HTTP/1.1
+# > Host: google.com
+# > User-Agent: curl/8.7.1
+# > Accept: */*
+```
+
+###### HTTP Response
+
+```
+Protocol | Code | Code Text
+       Headers
+        Body
+```
+
+```bash
+curl -v google.com
+
+# < HTTP/1.1 301 Moved Permanently
+# < Location: http://www.google.com/
+# < Content-Type: text/html; charset=UTF-8
+...
+# <HTML><HEAD><meta http-equiv="content-type" content="text/html;charset=utf-8"
+# <TITLE>301 Moved</TITLE></HEAD><BODY>
+# <H1>301 Moved</H1>
+# The document has moved
+# <A HREF="http://www.google.com/">here</A>.
+# </BODY></HTML>
+```
+
+###### How HTTP Protocol Works
+
+- The client establishes a TCP connection (and a TLS handshake for HTTPS)
+- The client sends an HTTP request
+- The server processes the request and sends an HTTP response
+- The connection may be **kept alive** (After HTTP/1.1) for reuse or closed when no longer needed
+
+###### Comparison between Different Versions
