@@ -182,3 +182,60 @@ We use `git add` to highlight or select changes included in the next commit.
   - Group specific changes together, in preparation of commiting
 - Commit (`git commit`, `Repository`)
   - Commit everything that was previously added
+
+#### 30. Staging Changes with git add
+
+Using `git add` to sepreate specific changes we made.
+
+Often, we use `git status` to see what changes has been made.
+
+```bash
+git add file1 file2
+git add .
+```
+
+#### 31. Finally, The git commit Command
+
+Using `git commit` to commit the changes which we previously staged.
+
+When we commit, we should make a commit **message** that summarizes and concludes the changes
+
+Runing `git commit` will commit all staged changes. It also opens up a **text editor** and prompts you for a commit message.
+
+Instead, we can give git the message by `-m`:
+
+```bash
+git commit -m "my message"
+```
+
+#### 32. The git log Command (And More Thing)
+
+`git log` will show the following information:
+
+- commit hash
+
+- author's name and email address
+
+- date
+
+- commit message.
+
+###### Example
+
+```
+commit *************************** (HEAD -> main)
+Author: *** <***@*.com>
+Date:   Fri Feb * 21:08:** 2026 +***
+
+    my git message
+```
+
+`--oneline` option can show the commit message prefixed with this information on the same line.
+
+```bash
+git log --oneline
+```
+
+#### 33. Committing Exercise
+
+（done）
