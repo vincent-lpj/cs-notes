@@ -1313,3 +1313,296 @@ async def delete_book(book_id: int = Path(gt=0)):
     if not book_changed:
         raise HTTPException(status_code=404, detail="Item not found")
 ```
+
+## Section 7: Project 3: Complete RESTful APIs
+
+#### 101. Project 3: Overview
+
+In project 3, we will be switching our focus to TODOs instead of BOOKS.
+
+New information will include:
+
+- Full SQL Database
+  - SQLite
+  - (later) PostgreSQL, MySQL
+- Authentication
+  - JWT
+- Authorization
+- Hashing Passwords
+  - Hashing algorithm
+
+###### Outline of Project 3
+
+```
+       Authorization              Retrieving the user
+       Authentication              and saving Todos
+  Web       ---------->    FastAPI     ---------->     Database
+  Page      <---------      Server     <---------
+```
+
+## Section 8: Setup Database
+
+#### 103. FastAPI Project: SQL Database Introduction
+
+###### What is a Database?
+
+- Organized collection of structured information of data, which is stored in a computer system.
+  - Organized in how data can be retrieved, stored, and modified
+  - A database allows management of data
+  - Database Management Systems (DBMS) like SQLite, MySQL, and PostgreSQL
+- The data can be
+  - easily accessed
+  - modified
+  - Controlled and organized
+- Many databases use a structured query lanaguage (SQL) to modify and write data
+
+###### What is a SQL?
+
+- Standard language for dealing with relational databases.
+  - Create
+  - Read
+  - Update
+  - Delete
+
+#### 104. FastAPI Project: Database Connection with ORM SQLAlchemy
+
+```
+pip install sqlalchemy
+```
+
+`database.py`
+
+```python
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker, declarative_base
+# from sqlalchemy.ext.declarative import declarative_base  # Old import (SQLAlchemy v1)
+
+
+# Database connection URL (connects to a local SQLite file)
+SQLALCHEMY_DATABASE_URL = "sqlite:///./todos.db"
+
+
+# Create database engine (responsible for connecting to the database)
+# SQLite requires check_same_thread=False for FastAPI (multi-thread support)
+engine = create_engine(
+    SQLALCHEMY_DATABASE_URL,
+    connect_args={"check_same_thread": False}
+)
+
+
+# Create a database session factory
+# SessionLocal is used to create database sessions
+# Sessions are used to query, insert, update, and delete data
+SessionLocal = sessionmaker(
+    autocommit=False,   # Do not save changes automatically
+    autoflush=False,    # Do not send changes to DB automatically
+    bind=engine         # Bind sessions to this engine
+)
+
+
+# Base class for all ORM models
+# All database models must inherit from this class
+# Used to collect table metadata for table creation
+Base = declarative_base()
+```
+
+#### 105. FastAPI Project: Database Tables (Models)
+
+`models.py`
+
+**Models** is a way for SQL alchemy to be able to understand what kind of database tables we are going to be creating within our database in the future.
+
+###### Table Structure: Todos
+
+| id (PK) | title | description | priority | Complete |
+| ------- | ----- | ----------- | -------- | -------- |
+|         |       |             |          |          |
+
+###### ORM Mapping
+
+```python
+from database import Base
+from sqlalchemy import Column, Integer, String, Boolean
+
+# Define a database model for the "todos" table (ORM model)
+# This class maps a Python object to a database table
+# One object = one row, one class = one table
+class Todos(Base):
+    __tablename__ = "todos"  # Specify the table name in the database
+
+    id = Column(Integer, primary_key=True, index=True)   # Primary key column (unique ID for each todo)
+    title = Column(String)
+    description = Column(String)
+    priority = Column(Integer)
+    complete = Column(Boolean, default=False)            # Stored as 0/1 in the database
+```
+
+#### 106. FastAPI Project: Main (Crate Database Connection for API)
+
+`main.py`
+
+```python
+from fastapi import FastAPI
+import models
+from database import engine
+
+
+# Create FastAPI application
+app = FastAPI()
+
+
+# Create database tables from ORM models
+# Base → collects all table models
+# metadata → stores table structure
+# create_all → creates missing tables
+# bind=engine → connects to the database
+models.Base.metadata.create_all(bind=engine)
+
+```
+
+SQLAchedemy will create database and table inside when we first open this FastAPI application.
+
+```bash
+uvicorn main:app --reload
+```
+
+###### Conception of Database Creation
+
+```python
+                ┌───────────────┐
+                │   Database    │
+                │ (SQLite/MySQL)│
+                └───────▲───────┘
+                        │
+                        │  (connect)
+                    ┌───┴───┐
+                    │ Engine│
+                    └───▲───┘
+                        │
+                        │  (bind)
+              ┌─────────┴─────────┐
+              │    SessionLocal    │
+              │ (Session Factory)  │
+              └─────────▲─────────┘
+                        │
+                        │  create
+                    ┌───┴───┐
+                    │Session│
+                    └───▲───┘
+                        │
+                        │  use
+        ┌───────────────┴───────────────┐
+        │           ORM Models          │
+        │   (Todos, Users, Tasks, ...)  │
+        └───────────────▲───────────────┘
+                        │
+                        │  inherit
+                    ┌───┴───┐
+                    │  Base │
+                    └───────┘
+
+```
+
+#### 108. FastAPI Project: Installation of SQLite3 Terminal (Mac)
+
+[SQLite Home Page](https://sqlite.org/)
+
+SQLite is shipped with [Home Brew](https://sqlite.org/)
+
+```python
+brew list
+```
+
+Then, we can enter SQLite using the following command:
+
+```python
+sqlite3
+# SQLite version 3.43.2 20**-**-** **:**:**
+# Enter ".help" for usage hints.
+# Connected to a transient in-memory database.
+# Use ".open FILENAME" to reopen on a persistent database.
+# sqlite>
+```
+
+#### 109. FastAPI Project: SQL Queries Introduction
+
+###### Inserting Database Tables
+
+```sqlite
+INSERT INTO todos (title, description, priority, complete) VALUES ("Go to store", "To pick up eggs", 4, false);
+```
+
+Then, we can insert more data:
+
+```sqlite
+INSERT INTO todos (title, description, priority, complete) VALUES ("Haircut", "Need to get length 1mm", 3, false);
+INSERT INTO todos (title, description, priority, complete) VALUES ("Feed dog", "Make sure to use new food brand", 5, false);
+```
+
+###### Select SQL Queries
+
+```sqlite
+-- Select ALL columns and rows
+SELECT * FROM todos;
+
+-- Select just title from columns
+SELECT title FROM todos;
+
+-- Select title, description from columns
+SELECT title, description FROM todos;
+```
+
+###### WHERE Clause
+
+`WHERE clause` specifies the cretieria that a field values must meet for the records that contains the values be included in the query results.
+
+```sqlite
+-- Select ALL rows & columns WHERE priority=5
+SELECT * FROM todos WHERE priority=5;
+
+SELECT * FROM todos WHERE title="Feed dog";
+
+SELECT * FROM todos WHERE id=2;
+```
+
+###### UPDATE Clause
+
+`UPDATE clause` is used when we want to update a record in the database.
+
+```sqlite
+-- Update ALL rows & columns to now have complete=True WHERE id=5
+UPDATE todos SET complete=True WHERE id=5;
+
+UPDATE todos SET complete=True WHERE title="Learn something new";
+```
+
+###### DELETE Clause
+
+`DELETE clause` is to delete a record from a database.
+
+```sqlite
+-- Delete ALL rows & columns where id = 5
+DELETE FROM todos WHERE id=5;
+
+DELETE FROM todos WHERE complete=0;
+```
+
+#### 110. FastAPI Project: SQLite3 Setting up Todos
+
+In this lecture, we will manipulate SQLite3 database using our terminal.
+
+```bash
+sqlite3 todos.db
+
+# Get help infos
+.help
+
+# Show all tables in our current database
+.schema
+
+# Get a nicer look of the table
+.mode column
+# .mode markdown
+# .mode box
+# .mode table
+```
