@@ -881,3 +881,435 @@ BOOKS = [
 async def read_all_books():
     return BOOKS
 ```
+
+#### 85. FastAPI Project: POST Request Before Valiation
+
+###### Sample Code
+
+`Body()` does not add any validation into our code.
+
+```python
+@app.post("/create-book")
+async def create_book(book_request = Body()):
+    BOOKS.append(book_request)
+    return book_request
+```
+
+So, we can add books like this, even if it does not make sense. We need to inplement some kind of validation.
+
+```bash
+curl -X 'POST' \
+  'http://localhost:8000/create-book' \
+  -H 'accept: application/json' \
+  -H 'Content-Type: application/json' \
+  -d '  {
+    "id": -6,
+    "title": "HP3",
+    "author": "Author 3",
+    "description": "Book Description",
+    "rating": "low"
+  }'
+```
+
+#### 86. FastAPI Project: Pydantics and Data Validation Overview
+
+In this section, we will go over [Pydantic](https://docs.pydantic.dev/latest/) .
+
+- A Python library that is used for **data modeling**, **data parsing** and has efficient **error handling**
+- Commonly used as a source for data validation in FastAPI
+
+###### How to Use Pydantic in a POST Request
+
+- To validate the data, we should seperate our Book object and request data.
+
+- Create a different request model for data validation: **BookRequest**
+  - Inherit from `BaseModel`
+
+  - Use `Field` to define validation rules
+  - FastAPI **automatically** validates input data
+
+  ```python
+  from pydantic import BaseModel, Field
+
+  class BookRequest(BaseModel):
+      id: int
+      title: str = Field(min_length=3)
+      author: str = Field(min_length=1)
+      description: str = Field(min_length=1, max_length=100)
+      rating: int = Field(gt=0, lt=6)
+  ```
+
+- Convert the Pydantic request model into a `Book` object
+
+  Basic Flow: Validate → Convert → Save
+
+  ```python
+  @app.post("/create-book")
+  async def create_book(book_request: BookRequest):  # validate
+      new_book = Book(**book_request.model_dump())  # convert
+      BOOKS.append(new_book)  # save
+      return new_book
+  ```
+
+#### 87. FastAPI Project: Pydantic Book Request Validation
+
+Here, we add an id checker to make it in a certain sequence.
+
+```python
+@app.post("/create-book")
+async def create_book(book_request: BookRequest):
+    new_book = Book(**book_request.model_dump())
+    BOOKS.append(find_book_id(new_book))
+    return new_book
+
+def find_book_id(book: Book):
+    if len(BOOKS) > 0:
+        book.id = BOOKS[-1].id + 1
+    else:
+        book.id = 1
+
+    return book
+```
+
+#### 88. FastAPI Project: Fields - Data Validation
+
+`Field` allow use to add validation to each field of object.
+
+We change the attribute `id` to be optional here, since we have the id checker.
+
+```python
+class BookRequest(BaseModel):
+    id: Optional[int] = None
+    title: str = Field(min_length=3)
+    author: str = Field(min_length=1)
+    description: str = Field(min_length=1, max_length=100)
+    rating: int = Field(gt=0, lt=6)
+```
+
+#### 89. FastAPI Project: Pydantic Configuration
+
+`model_config` is used to customize how a Pydantic model **behaves** and **appears** in FastAPI documentation.
+
+- `json_schema_extra` is used to **add extra information to the generated JSON schema**, mainly for documentation purposes.
+
+  It is commonly used to:
+  - Provide example request data
+  - Improve API readability
+  - Help frontend developers understand input format
+
+```python
+class BookRequest(BaseModel):
+  	# Optional ID (not required when creating a new book)
+    id: Optional[int] = Field(description="This id is not needed fo creation", default=None)
+    title: str = Field(min_length=3)
+    author: str = Field(min_length=1)
+    description: str = Field(min_length=1, max_length=100)
+    rating: int = Field(gt=0, lt=6)
+
+    # Configure extra schema information for Swagger UI
+    # We can check in Swagger UI that example data is displayed
+    model_config = {
+    "json_schema_extra" : {
+        "example": {
+            "title": "A new book",
+            "author": "codingwithroby",
+            "description": "A new description of a book",
+            "rating": 5
+        }
+      }
+    }
+```
+
+#### 90. FastAPI Project: Fetch Book
+
+Let us create more endpoints.
+
+```python
+@app.get('/books/{book_id}')
+async def read_book(book_id:int):
+    for book in BOOKS:
+        if book.id == book_id:
+            return book
+```
+
+#### 91. FastAPI Project: Fetch Books by Rating
+
+Another endpoint to fetch book by rating:
+
+```python
+@app.get("/books/")
+async def read_book_by_rating(book_rating: int):
+    books_to_return = []
+    for book in BOOKS:
+        if book.rating == book_rating:
+            books_to_return.append(book)
+    return books_to_return
+```
+
+#### 92. FastAPI Project: Update Book with PUT Request
+
+PUT method allows us to update our data
+
+```python
+# Not sure why BookRequest is not converted here
+@app.put("/books/update_book")
+async def update_book(book: BookRequest):
+    for i in range(len(BOOKS)):
+        if BOOKS[i].id == book.id:
+            BOOKS[i] = book
+```
+
+#### 93. FastAPI Project: Delete Book with Delete Request
+
+```python
+@app.delete("/books/{book_id}")
+async def delete_book(book_id: int):
+    for i in range(len(BOOKS)):
+        if BOOKS[i].id == book_id:
+            BOOKS.pop(i)
+            break
+```
+
+#### 96. FastAPI Project: Data Validation Path Parameters
+
+In this section, let us continue to add validation to our project.
+
+`Path` allow us to build and validate path parameters.
+
+```python
+from fastapi inport Path
+@app.get('/books/{book_id}')
+async def read_book(book_id:int = Path(gt=0)):
+    for book in BOOKS:
+        if book.id == book_id:
+            return book
+```
+
+Now, we not only have validations on our request body and on our path parameters.
+
+#### 97. FastAPI Project: Data Validation Query Parameters
+
+`Query` allow us to add valitation to query parameters.
+
+```python
+from fastapi import Query
+
+@app.get("/books/")
+async def read_book_by_rating(book_rating: int = Query(gt=0, lt=6)):
+    books_to_return = []
+    for book in BOOKS:
+        if book.rating == book_rating:
+            books_to_return.append(book)
+    return books_to_return
+```
+
+#### 98. FastAPI Project: Status Codes Overview
+
+We will go over `status code`, when dealing with API and API endpoints.
+
+###### Status Code
+
+- An HTTP status code is to help the client (the user or system submitting data to the server) to understand what happened on the server side application
+- Status codes are international standards on how **a client/server should handle the result of a request**.
+- It allows everyone who sends a request to know it their submission was successful or not.
+
+|     |                      |                                   |
+| --- | -------------------- | --------------------------------- |
+| 1xx | Information Response | Request processing                |
+| 2xx | Success              | Request successfully complete     |
+| 3xx | Redirection          | Further action must be complete   |
+| 4xx | Client Errors        | An error was caused by the client |
+| 5xx | Server Errors        | An error occurred on the server   |
+
+###### 2xx: Successful Status Code
+
+`200: OK`:
+
+- Standard response for a successful request.
+- Commonly used for successful **GET** requests when data is being returned
+
+`201: Created`:
+
+- The request has been successful, creating a **new resource**.
+- Used when a POST creates an entity
+
+`204: No Content`:
+
+- The request has been successful, did **NOT** create an entity nor return anything.
+- Commonly used with **PUT** method
+
+###### 4xx: Client Errors Status Code
+
+`400: Bad Request`:
+
+- Can not process due to client error
+- Commonly used for invalid request method
+
+`401: Unauthorized`:
+
+- Client does not have valid authentication for target resource
+
+`404: Not Found`:
+
+- The client requested resource can not be found
+
+`422: Unprocessable Entity`:
+
+- Semantic Errors in client request
+
+###### 5xx: Server Status Code
+
+`500: Internal Server Error`:
+
+- Generic error message, when an unexpected issue on the server happened.
+- Such as a failed Python program, etc.
+
+#### 99. FastAPI Project: HTTP Exceptions
+
+Learn how to implement HTTP exceptions.
+
+An `HTTPException` is something we raise within our method, which is to cancel the functionaliy of our method, and return a message and status code to our user.
+
+Use `raise` to raise HTTPException
+
+```python
+from fastapi import HTTPException
+
+@app.get('/books/{book_id}')
+async def read_book(book_id:int = Path(gt=0)):
+    for book in BOOKS:
+        if book.id == book_id:
+            return book
+    raise HTTPException(status_code=404, detail="Item not found")
+```
+
+#### 100. FastAPI Project: Explicit Status Code Response
+
+In this section, we will add a **status code response** for a successful API endpoint request.
+
+FastAPI is built on `starlette`, so we can directly import `status` from startlette.
+
+Although FastAPI returns 200 when successful, we can be **explicit** about it.
+
+```python
+from starlette import status
+```
+
+###### Final Version
+
+```python
+from fastapi import FastAPI, Path, Query, HTTPException
+from pydantic import BaseModel, Field
+from typing import Optional
+from starlette import status
+
+app = FastAPI()
+
+class Book:
+    id : int
+    title: str
+    author: str
+    description: str
+    rating: int
+    published_date: int
+
+    def __init__(self, id, title, author, description, rating, published_date):
+        self.id = id
+        self.title = title
+        self.author = author
+        self.description = description
+        self.rating = rating
+        self.published_date = published_date
+
+class BookRequest(BaseModel):
+    id: Optional[int] = Field(description="This id is not not needed fo creation", default=None)
+    title: str = Field(min_length=3)
+    author: str = Field(min_length=1)
+    description: str = Field(min_length=1, max_length=100)
+    rating: int = Field(gt=0, lt=6)
+    published_date: int = Field(gt=1999,lt=2031)
+
+    model_config = {
+        "json_schema_extra" : {
+            "example": {
+                "title": "A new book",
+                "author": "codingwithroby",
+                "description": "A new description of a book",
+                "rating": 5,
+                "published_date": 2026
+            }
+        }
+    }
+
+BOOKS = [
+    Book(1, 'Computer Science Pro', 'codingwithroby', 'A very Nice Book!', 5, 2030),
+    Book(2, 'Be fast with FastAPI', 'codingwithroby', 'A very Nice Book!', 5, 2030),
+    Book(3, 'Master Endpoints', 'codingwithroby', 'A very Nice Book!', 5, 2029),
+    Book(4, 'HP1', 'Author 1', 'Book Description', 2, 2028),
+    Book(5, 'HP2', 'Author 2', 'Book Description', 3, 2027),
+    Book(6, 'HP3', 'Author 3', 'Book Description', 1, 2026),
+]
+
+
+@app.get("/books", status_code=status.HTTP_200_OK)
+async def read_all_books():
+    return BOOKS
+
+
+@app.get("/books/{book_id}", status_code=status.HTTP_200_OK)
+async def read_book(book_id:int = Path(gt=0)):
+    for book in BOOKS:
+        if book.id == book_id:
+            return book
+    raise HTTPException(status_code=404, detail="Item not found")
+
+@app.get("/books/", status_code=status.HTTP_200_OK)
+async def read_book_by_rating(book_rating: int = Query(gt=0, lt=6)):
+    books_to_return = []
+    for book in BOOKS:
+        if book.rating == book_rating:
+            books_to_return.append(book)
+    return books_to_return
+
+@app.get("/books/publish/", status_code=status.HTTP_200_OK)
+async def read_book_by_publish_date(published_date: int = Query(gt=1999, lt=2031)):
+    books_to_return = []
+    for book in BOOKS:
+        if book.published_date == published_date:
+            books_to_return.append(book)
+    return books_to_return
+
+
+@app.post("/create-book", status_code=status.HTTP_201_CREATED)
+async def create_book(book_request: BookRequest):
+    new_book = Book(**book_request.model_dump())
+    BOOKS.append(find_book_id(new_book))
+    return new_book
+
+def find_book_id(book: Book):
+    book.id = 1 if len(BOOKS) == 0 else BOOKS[-1].id + 1
+    return book
+
+# Not sure why BookRequest is not converted here
+@app.put("/books/update_book", status_code=status.HTTP_204_NO_CONTENT)
+async def update_book(book: BookRequest):
+    book_changed = False
+    for i in range(len(BOOKS)):
+        if BOOKS[i].id == book.id:
+            BOOKS[i] = book
+            book_changed = True
+    if not book_changed:
+        raise HTTPException(status_code=404, detail="Item not found")
+
+
+@app.delete("/books/{book_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_book(book_id: int = Path(gt=0)):
+    book_changed = False
+    for i in range(len(BOOKS)):
+        if BOOKS[i].id == book_id:
+            BOOKS.pop(i)
+            book_changed = True
+            break
+    if not book_changed:
+        raise HTTPException(status_code=404, detail="Item not found")
+```
