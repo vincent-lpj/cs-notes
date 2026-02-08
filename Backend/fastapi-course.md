@@ -1606,3 +1606,415 @@ sqlite3 todos.db
 # .mode box
 # .mode table
 ```
+
+## Section 9: API Request Methods
+
+#### 111. FastAPI Project: Get All Todos from Database
+
+Note: `Base.metadata.create_all(bind=engine)` will not enhance our DB if it already exists. We will learn more about enhancing it in **Alembic Section of Course**.
+
+###### Depends and Annotated in FastAPI
+
+Depends → Injects values
+
+Annotated → Adds metadata
+
+`Depends`
+
+- Used for dependency injection
+- Tells FastAPI how to get a parameter value
+- **Automatically** calls the dependency function
+
+```python
+# Example
+Depends(get_db)
+```
+
+`Annotated`
+
+- Used to attach extra **metadata** to a type
+- Format: Annotated[Type, Extra]
+
+```python
+# Example:
+# Parameter type: Session
+# Parameter source: get_db()
+Annotated[Session, Depends(get_db)]
+# FastAPI will:
+# 1. Call get_db()
+# 2. Get the returned/yielded value
+# 3. Inject it into the endpoint
+```
+
+###### main.py
+
+Dependency Injecttion
+
+Let FastAPI automatically provide required objects (like DB sessions) to your functions.
+
+```python
+from typing import Annotated
+from fastapi import FastAPI, Depends
+from sqlalchemy.orm import Session
+import models
+from models import Todos
+from database import engine, SessionLocal
+
+
+# Create FastAPI application
+app = FastAPI()
+
+
+# Create database tables from ORM models (if they do not exist)
+# Base → collects all models
+# metadata → stores table info
+# create_all → creates missing tables
+# bind=engine → connects to DB
+models.Base.metadata.create_all(bind=engine)
+
+
+# Database dependency function
+# Provides a database session for each request
+def get_db():
+
+    # Create a new database session
+    db = SessionLocal()
+
+    try:
+        # Give the session to FastAPI
+        yield db
+
+    finally:
+        # Always close the session after request ends
+        db.close()
+
+
+# Create a reusable database dependency type
+# Session → expected type
+# Depends(get_db) → get session from get_db()
+db_dependency = Annotated[Session, Depends(get_db)]
+
+
+# Get all todos from the database
+# db: Session = Depends(get_db)
+# is the same as
+# db: Annotated[Session, Depends(get_db)]
+@app.get("/", status_code=status.HTTP_200_OK)
+async def read_all(db: db_dependency):
+
+    # Query all records from the Todos table
+    return db.query(Todos).all()
+```
+
+###### Try It out!
+
+```bash
+curl -X 'GET' \
+  'http://localhost:8000/read_all' \
+  -H 'accept: application/json'
+```
+
+#### 112. FastAPI Project: Get Todo by ID
+
+```python
+@app.get("/todo/{todo_id}", status_code=status.HTTP_200_OK)
+async def read_todo(
+    db: db_dependency,                 # Inject database session
+    todo_id: int = Path(gt=0)           # Path parameter (must be > 0)
+):
+
+    # Query the Todos table and find the record by ID
+    todo_model = db.query(Todos).filter(Todos.id == todo_id).first()
+
+    # If the todo exists, return it
+    if todo_model is not None:
+        return todo_model
+
+    # If not found, return 404 error
+    raise HTTPException(
+        status_code=404,
+        detail="Todo not found."
+    )
+```
+
+#### 113. FastAPI Project: POST Request (Todo Project)
+
+```python
+# Request model for creating a new Todo
+# ID is not included because SQLite will generate it automatically
+class TodoRequst(BaseModel):
+    title: str = Field(min_length=3)
+    description: str = Field(min_length=3, max_length=100)
+    priority: int = Field(gt=0, lt=6)
+    complete: bool
+
+@app.post("/todo", status_code=status.HTTP_201_CREATED)
+async def create_todo(db: db_dependency, todo_request: TodoRequst):
+    # Convert Pydantic model to ORM model
+    todo_model = Todos(**todo_request.model_dump())
+
+    # Add the new record to the session
+    db.add(todo_model)
+
+    # Save changes to the database
+    db.commit()
+```
+
+#### 114. FastAPI Project: Put Request (Todo Project)
+
+###### ORM Upadate Rule
+
+To update data, first query the ORM object, then modify the fields of the **same ORM object** and commit.
+Do not create a new object to replace it.
+
+```python
+@app.put("/todo/{todo_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def update_todo(db: db_dependency,todo_request: TodoRequst, todo_id: int = Path(gt=0)):
+    # Find the todo item by ID
+    todo_model = db.query(Todos).filter(Todos.id == todo_id).first()
+
+    # If not found, return 404 error
+    if todo_model is None:
+        raise HTTPException(status_code=404, detail="Todo not found.")
+
+    # Update fields using request data
+    todo_model.title = todo_request.title
+    todo_model.description = todo_request.description
+    todo_model.priority = todo_request.priority
+    todo_model.complete = todo_request.complete
+
+    db.add(todo_model)    # Add updated object to session
+    db.commit()						# Save changes to the database
+```
+
+###### Try It out!
+
+```bash
+curl -X 'PUT' \
+  'http://localhost:8000/todo/3' \
+  -H 'accept: */*' \
+  -H 'Content-Type: application/json' \
+  -d '  {
+    "complete": true,
+    "description": "Make sure to use new food brand",
+    "priority": 1,
+    "title": "Feed dog"
+  }'
+```
+
+#### 115. FastAPI Project: Delete Request (Todo Project)
+
+```python
+@app.delete("/todo/{todo_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_todo(db: db_dependency, todo_id: int = Path(gt=0)):
+    todo_model = db.query(Todos).filter(Todos.id == todo_id).first()
+    if todo_model is None:
+        raise HTTPException(status_code=404, detail="Todo not found")
+    db.query(Todos).filter(Todos.id == todo_id).delete()
+    db.commit()
+```
+
+```bash
+curl -X 'DELETE' \
+  'http://localhost:8000/todo/5' \
+  -H 'accept: */*'
+```
+
+#### Todo Project – Self Review Notes
+
+###### Project Structure
+
+- main.py (API entry)
+
+- models.py (ORM models)
+
+- database.py (DB config)
+
+###### ORM Workflow
+
+```
+query()   → Find data
+add()     → Insert
+commit()  → Save
+refresh() → Reload
+delete()  → Remove
+close()   → Cleanup
+```
+
+###### API Endpoint
+
+| Action   | Method | Endpoint   |
+| -------- | ------ | ---------- |
+| Read All | GET    | /          |
+| Read     | GET    | /todo/{id} |
+| Create   | POST   | /todo      |
+| Update   | PUT    | /todo/{id} |
+| Delete   | DELETE | /todo/{id} |
+
+###### Source Code
+
+`main.py`
+
+```python
+from typing import Annotated
+
+from pydantic import BaseModel, Field
+from sqlalchemy.orm import Session
+from fastapi import FastAPI, Depends, HTTPException, Path
+from starlette import status
+
+import models
+from models import Todos
+from database import engine, SessionLocal
+
+
+# Create FastAPI application
+app = FastAPI()
+
+
+# Create database tables from ORM models (if they do not exist)
+# Base → collects all models
+# metadata → stores table info
+# create_all → creates missing tables
+# bind=engine → connects to DB
+models.Base.metadata.create_all(bind=engine)
+
+
+# Database dependency function
+# Provides a database session for each request
+def get_db():
+    # Create a new database session
+    db = SessionLocal()
+
+    try:
+        yield db        # Give the session to FastAPI
+    finally:
+        db.close()      # Always close the session after request ends
+
+
+# Create a reusable database dependency type
+# Session → expected type
+# Depends(get_db) → get session from get_db()
+db_dependency = Annotated[Session, Depends(get_db)]
+
+# Request model for creating a new Todo
+# ID is not included because SQLite will generate it automatically
+class TodoRequst(BaseModel):
+    title: str = Field(min_length=3)
+    description: str = Field(min_length=3, max_length=100)
+    priority: int = Field(gt=0, lt=6)
+    complete: bool
+
+
+# Get all todos from the database
+@app.get("/", status_code=status.HTTP_200_OK)
+async def read_all(db: db_dependency):
+    # Query all records from the Todos table
+    return db.query(Todos).all()
+
+
+# Inject database session: db_dependency
+# Path parameter (must be > 0): Path(gt=0)
+@app.get("/todo/{todo_id}", status_code=status.HTTP_200_OK)
+async def read_todo(db: db_dependency, todo_id: int = Path(gt=0)):
+    # Query the Todos table and find the record by ID
+    todo_model = db.query(Todos).filter(Todos.id == todo_id).first()
+
+    # If the todo exists, return it
+    if todo_model is not None:
+        return todo_model
+
+    # If not found, return 404 error
+    raise HTTPException(status_code=404, detail="Todo not found.")
+
+@app.post("/todo", status_code=status.HTTP_201_CREATED)
+async def create_todo(db: db_dependency, todo_request: TodoRequst):
+    # Convert Pydantic model to ORM model
+    todo_model = Todos(**todo_request.model_dump())
+
+    db.add(todo_model)          # Add the new record to the session
+    db.commit()                 # Save changes to the database
+
+
+@app.put("/todo/{todo_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def update_todo(db: db_dependency,todo_request: TodoRequst, todo_id: int = Path(gt=0)):
+    # Find the todo item by ID
+    todo_model = db.query(Todos).filter(Todos.id == todo_id).first()
+
+    # If not found, return 404 error
+    if todo_model is None:
+        raise HTTPException(status_code=404, detail="Todo not found.")
+
+    # Update fields on the existing ORM object
+    # This allows SQLAlchemy to track changes and perform an UPDATE
+    todo_model.title = todo_request.title
+    todo_model.description = todo_request.description
+    todo_model.priority = todo_request.priority
+    todo_model.complete = todo_request.complete
+
+    db.add(todo_model)              # Add updated object to session
+    db.commit()						# Save changes to the database
+
+@app.delete("/todo/{todo_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_todo(db: db_dependency, todo_id: int = Path(gt=0)):
+    todo_model = db.query(Todos).filter(Todos.id == todo_id).first()
+    if todo_model is None:
+        raise HTTPException(status_code=404, detail="Todo not found")
+    db.delete(todo_model)           # Delete the record
+    db.commit()                     # Save changes to the database
+```
+
+`database.py`
+
+```python
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker, declarative_base
+# from sqlalchemy.ext.declarative import declarative_base  # Old import (SQLAlchemy v1)
+
+
+# Database connection URL (connects to a local SQLite file)
+SQLALCHEMY_DATABASE_URL = "sqlite:///./todos.db"
+
+
+# Create database engine (responsible for connecting to the database)
+# SQLite requires check_same_thread=False for FastAPI (multi-thread support)
+engine = create_engine(
+    SQLALCHEMY_DATABASE_URL,
+    connect_args={"check_same_thread": False}
+)
+
+
+# Create a database session factory
+# SessionLocal is used to create database sessions
+# Sessions are used to query, insert, update, and delete data
+SessionLocal = sessionmaker(
+    autocommit=False,   # Do not save changes automatically
+    autoflush=False,    # Do not send changes to DB automatically
+    bind=engine         # Bind sessions to this engine
+)
+
+
+# Base class for all ORM models
+# All database models must inherit from this class
+# Used to collect table metadata for table creation
+Base = declarative_base()
+```
+
+`models.py`
+
+```python
+from database import Base
+from sqlalchemy import Column, Integer, String, Boolean
+
+# Define a database model for the "todos" table (ORM model)
+# This class maps a Python object to a database table
+# One object = one row, one class = one table
+class Todos(Base):
+    __tablename__ = "todos"  # Specify the table name in the database
+
+    id = Column(Integer, primary_key=True, index=True)   # Primary key column (unique ID for each todo)
+    title = Column(String)
+    description = Column(String)
+    priority = Column(Integer)
+    complete = Column(Boolean, default=False)            # Stored as 0/1 in the database
+```
