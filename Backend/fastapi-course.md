@@ -6,45 +6,45 @@
 
 #### 1. Introduction
 
-Learning to build **RESTful** and **full-stack** application using **fastapi**.
+This course focuses on learning how to build **RESTful** and **full-stack** applications using **FastAPI**.
 
-Not only to teach how to build fastapi application, but also knowledges about full-stack development.
+It not only teaches how to develop FastAPI applications, but also covers essential knowledge of **full-stack development**.
 
-**No** fastapi knowledge is needed to start this course.
+**No prior FastAPI experience is required** to start this course.
 
 #### 2. Course Content
 
 ###### Learning Path / Roadmap
 
-Phase 1: Foundations
+1. Phase 1: Foundations
+   - Introduction
 
-- Introduction
-- Python Refresher
+   - Python Refresher
 
-Phase 2: Backend Projects
+2. Phase 2: Backend Projects
+   - Project 1 (Restful API endpoint)
 
-- Project 1 (Restful API endpoint)
-- Project 2 (Class & Error Handling)
-- Project 3 (Database & ORM)
+   - Project 2 (Class & Error Handling)
 
-Phase 3: Core Features
+   - Project 3 (Database & ORM)
 
-- Authentication (JWT)
-- Routing
+3. Phase 3: Core Features
+   - Authentication (JWT)
 
-Phase 4: Advanced Backend
+   - Routing
 
-- Project 3.5 (DB & DB Migration)
-- Project 4 (Unit & Integration Testing)
+4. Phase 4: Advanced Backend
+   - Project 3.5 (DB & DB Migration)
 
-Phase 5: Full Stack
+   - Project 4 (Unit & Integration Testing)
 
-- Project 5 (Full Stack Development)
+5. Phase 5: Full Stack
+   - Project 5 (Full Stack Development)
 
-Phase 6: Tooling & Workflow
+6. Phase 6: Tooling & Workflow
+   - Git / GitHub Setup
 
-- Git / GitHub Setup
-- Development
+   - Development
 
 #### 3. How to Get Most
 
@@ -81,11 +81,11 @@ print(f"{enemy.type_of_enemy} has {enemy.health_points} health points and can do
 
 ###### What is Abstraction?
 
-`Abstraction` means to hide the implementation and only show necessary details to the user.
+`Abstraction` means hiding the implementation details and showing only the necessary information to the user.
 
-Let us think of flashlight, it has a 'on' and 'off' switch, you will have a beam of light when turning the 'on' switch.
+For example, think of a flashlight. It has an "on" and "off" switch. When you turn it on, it produces a beam of light.
 
-You do **NOT** need to know the light inside the flashlight, you only focus on the switch
+You do **NOT** need to know how the light works inside the flashlight; you only need to focus on the switch.
 
 ###### Example
 
@@ -102,7 +102,7 @@ class Enemy:
       print("I am an enemy!")
 ```
 
-Then, in the `main.py` file (just like the flashlight):
+Then, in the `main.py` file (similar to using a flashlight):
 
 ```python
 from Enemy import *
@@ -115,10 +115,10 @@ enemy.talk()  # Here, we only need to focus on calling talk method, instead of c
 
 ###### Why Use Abstraction?
 
-- This allow users to not have to understand what the functionality is behind the scenes
-- You can create simple and reusable code
-- Allows for a Better use of the DRY principle (Do not repeat your self)
-- Enables Python object to be more scalable
+- This allows users to avoid understanding how the functionality works behind the scenes
+- It helps create simple and reusable code
+- It encourages better use of the **DRY** principle (Do not repeat yourself)
+- It makes Python objects more scalable
 
 #### 44. Abstraction in Python
 
@@ -164,6 +164,8 @@ zombie.attack()
 ```
 
 #### 45. Constructors in Python Overview
+
+###### What is Constructor
 
 `Constructor` is used **create** and **initialize** and object of a class with or without starting values.
 
@@ -276,9 +278,11 @@ Suppose we do not want the type of enemy to be able to change.
 
 #### 61. FastAPI Overview
 
-`FastAPI` is a Python web-framework for building mordern RESTful APIs.
-
 [Official Documentation](https://fastapi.tiangolo.com/)
+
+###### Strength of FastAPI
+
+`FastAPI` is a Python web-framework for building mordern RESTful APIs.
 
 - Few Bugs
 - Quick & Easy
@@ -289,7 +293,7 @@ Suppose we do not want the type of enemy to be able to change.
 
 A webpage communicates with a backend server through HTTP APIs (often RESTful).
 
-FastAPI can also render webpage, and create full-stack application.
+FastAPI can also render web pages and be used to build full-stack applications.
 
 ```
 Web Page  <------------    Fast API
@@ -315,7 +319,9 @@ python -m pip --version
 
 #### 64. FastAPI and Virtual Environment Installation (Mac)
 
-Creating a virtual environment for our FastAPI application.
+###### Creating a Virtual Environment
+
+We use `pip` and `venv` to create virtual environment for our FastAPI application.
 
 - pip3 → system Python
 - pip → current environment
@@ -342,6 +348,8 @@ source fastapienv/bin/activate
 pip list
 # Show all Python packages installed in the virtual environment
 ```
+
+###### Installation of FastAPI
 
 ```bash
 pip install fastapi
@@ -399,8 +407,11 @@ async def first_api():
 
 ###### Dive In
 
-`async` stands for asynchronous. It allows non-blocking execution,
-so the server can handle multiple requests efficiently.
+`async` stands for asynchronous.
+
+- It enables non-blocking execution, allowing the server to handle multiple requests concurrently.
+
+- In traditional synchronous code, each request must finish before the next one starts, which can slow down performance when many users connect at the same time.
 
 ```python
 # 127.0.0.1:8000/api-endpoint
@@ -422,7 +433,13 @@ async def first_api():
 
 ###### Run FastAPI Application
 
-`uvicorn` is the web server we use to start a FastAPI application
+`uvicorn` is the ASGI web server used to run and serve a FastAPI application.
+
+It：
+
+- handles incoming HTTP requests,
+- manages asynchronous communication,
+- and connects the FastAPI application to the network.
 
 ```bash
 # Start the FastAPI application using Uvicorn
@@ -476,7 +493,7 @@ async def read_all_books():
 
 `127.0.0.0.1:8000/docs`
 
-`/docs` is the central page for viewing and testing FastAPI APIs (Swagger UI). It is used to view and test APIs in the browser.
+`/docs` is the central page for viewing and testing FastAPI APIs using Swagger UI. It allows you to interact with APIs directly in the browser.
 
 - Show all API endpoints
 - Display HTTP methods (GET, POST, etc.)
@@ -488,9 +505,9 @@ async def read_all_books():
 
 ###### What are Path Parameters
 
-`Path Parameters` are request parameters that have been attached to the URL.
+`Path parameters` are variables embedded in the URL path that are used to pass data to the server.
 
-- usually defined as a way to find information based on location
+- They are usually used to **identify** or **locate** specific resources based on their position in the URL structure
 
 ###### Example
 
@@ -534,7 +551,7 @@ http://localhost:8000/books/title%20four
 
 ###### What are Query Parameters
 
-`Query paremeters` are request parameters (`name=value `pairs) that have been attched after a "?".
+`Query parameters` are request parameters (`name=value` pairs) that are attached to the URL after a `?`.
 
 Examples:
 
@@ -546,7 +563,7 @@ URL:
 
 #### 73. FastAPI Project: Query Parameters
 
-Query parameters are used to **filter** data, based on the url provided.
+Query parameters are used to **filter**, **sort**, or **paginate** data based on the URL provided. data, based on the url provided.
 
 ```python
 # Unlike path parameters, query parameters do not need to be written in the URL path
@@ -567,7 +584,7 @@ async def read_book_by_query(category: str):
 
 - Used to **create new data** on the server
 
-- POST requests can include a **request body**, which allows sending additional data
+- POST requests can include a **request body**, allowing additional data to be sent
 
 - The request body is usually sent in **JSON format**
 
@@ -580,7 +597,7 @@ It tells FastAPI that the data should be read from the **HTTP request body**, no
 
 #### 75. FastAPI Project: Post Request
 
-POST is the `Create` method. So we will use POST method to add new data into our book list.
+POST is the `Create` method in CRUD operations, so it is used to add new data to the book list.
 
 ```python
 from fastapi import Body
@@ -669,7 +686,7 @@ curl -X 'PUT' \
 - Used to **delete** data from the server
 - Usually removes a resource by **ID or unique field** (such as title)
 - Most DELETE requests use **path parameters** to identify the target
-- Does not usually contain a request body
+- It usually does not contain a request body
 
 #### 79. FastAPI Project: Delete Request
 
@@ -811,7 +828,7 @@ async def delete_book(book_title: str):
 
 Project will be still focusing on creating Book API Endpoints.
 
-This project will include:
+It will include:
 
 - GET, POST, PUT, DELETE Requst Methods
 - Data Validation, Error Handling, Status Code, Swagger Configuration, Python Request Objects
@@ -916,13 +933,13 @@ curl -X 'POST' \
 In this section, we will go over [Pydantic](https://docs.pydantic.dev/latest/) .
 
 - A Python library that is used for **data modeling**, **data parsing** and has efficient **error handling**
-- Commonly used as a source for data validation in FastAPI
+- Commonly used for data validation in FastAPI
 
 ###### How to Use Pydantic in a POST Request
 
-- To validate the data, we should seperate our Book object and request data.
+- To validate data, we should separate the Book object from the request data.
 
-- Create a different request model for data validation: **BookRequest**
+- Create a separate request model for data validation: **BookRequest**
   - Inherit from `BaseModel`
 
   - Use `Field` to define validation rules
