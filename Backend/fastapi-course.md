@@ -2018,3 +2018,1070 @@ class Todos(Base):
     priority = Column(Integer)
     complete = Column(Boolean, default=False)            # Stored as 0/1 in the database
 ```
+
+## Section 10: Authentication & Authorization
+
+#### 116. FastAPI Project: Starting Authentication & Authorization
+
+In this section, we start working on authentication and authorization for our application.
+
+As our application is growing, how do we **scale** our application for cleaness and maintenability is very important.
+
+So, we will create a new file, `auth.py` in our root folder.
+
+#### 117. FastAPI Project: Routers Scale Authentication File
+
+###### Router
+
+Routers help separate API endpoints into different files.
+
+The main file acts as the entry point, and each router manages its own routes, which improves code organization and readability.
+
+- Create a `routers` folder to separate route logic from main application code.
+
+- Move `auth.py` into `routers` to improve project maintainability.
+
+- In `auth.py`:
+
+  ```python
+  from fastapi import APIRouter
+
+  # Create a router instance for grouping related endpoints
+  router = APIRouter()
+
+  # Authentication-related endpoint
+  # This route will be registered in main.py using include_router()
+  @router.get("/auth/")
+  async def get_user():
+
+      # Return authentication status (example response)
+      return {"user": "authenticated"}
+  ```
+
+- In `main.py`:
+
+  ```python
+  from routers import auth
+
+  # Register authentication-related routes
+  app.include_router(auth.router)
+  ```
+
+#### 118. FastAPI Project: Router Scale Todos File
+
+In this section, we keep cleaning up our application for scalability and maintenability.
+
+- Create a `todos.py` in `routes` folder
+- Move todos related endpoints from `main.py` to `todos.py`
+
+###### Current Project File Structure (With Routes)
+
+```
+todo_project/
+│
+├── main.py                # Application entry point (create app, register routers)
+│
+├── database.py            # Database config (engine, SessionLocal, Base)
+│
+├── models.py              # ORM models (Todos table)
+│
+├── routers/               # Route modules (API endpoints)
+│   │
+│   ├── __init__.py        # Makes routers a Python package
+│   ├── auth.py            # Authentication-related routes
+│   └── todos.py           # Todo CRUD routes
+│
+├── requirements.txt       # Project dependencies
+│
+└── todos.db               # SQLite database file
+```
+
+#### 119. FastAPI Project: One to Many Relationships
+
+###### What is A One Two Many Relationships
+
+- A user can have many todos
+- We use `owner` as **foreign key** in todos table to connect it to users table
+
+###### todos
+
+| id(PK) | title | description | priority | complete | owner(FK) |
+| ------ | ----- | ----------- | -------- | -------- | --------- |
+|        |       |             |          |          |           |
+
+###### users
+
+| id(PK) | email | username | first_name | last_name | hased_password | is_active |
+| ------ | ----- | -------- | ---------- | --------- | -------------- | --------- |
+|        |       |          |            |           |                |           |
+
+- Each API request, a user will have their ID attached
+  - If we have the user ID attached to each request, we can use the ID to find their todos.
+
+#### 120. FastAPI Project: Foreign Keys
+
+###### What is A Foreign Key?
+
+A `foreign key` is a column within a relational database table that provides a **link** between two separate tables.
+
+- A foreign key references a primary key of another table
+
+#### 121. FastAPI Project: Users Table Creation
+
+1. Firstly, we change our DB's name: `todos` -> `todosapp`
+   - In `database.py`, we
+
+     ```python
+     # Database connection URL (connects to a local SQLite file)
+     SQLALCHEMY_DATABASE_URL = "sqlite:///./todosapp.db"
+     ```
+
+   - This will create a database called "todosapp" after we start the app
+
+2. Then, we create `users` table
+   - In `models.py`, we
+
+     ```python
+     # ORM model for the "users" table (one class = one table)
+     class Users(Base):
+         __tablename__ = "users"                              # Table name in database
+
+         id = Column(Integer, primary_key=True, index=True)    # Unique user ID (primary key)
+         email = Column(String, unique=True)                   # User email (must be unique)
+         username = Column(String, unique=True)                # Username (must be unique)
+         first_name = Column(String)                           # User first name
+         last_name = Column(String)                            # User last name
+         hashed_password = Column(String)                      # Encrypted password (never store plain text)
+         is_active = Column(Boolean, default=True)             # Account status (active / disabled)
+         role = Column(String)                                 # User role (e.g., admin, user)
+     ```
+
+   - This will add a new table called `users` after we start the app
+
+3. Finally, we add a column of `owner_id` in `todos` table
+
+   ```python
+   owner_id = Column(Integer, ForeignKey("users.id"))    # Link to users.id (foreign key)
+   ```
+
+#### 122. FastAPI Project: Create First User
+
+In this section, we start to enhance our `auth.py`
+
+```python
+from fastapi import APIRouter
+from pydantic import BaseModel
+from models import Users
+
+
+# Create a router instance for grouping authentication-related endpoints
+router = APIRouter()
+
+
+# Request model for creating a new user
+# Used to validate incoming JSON data
+class CreateUserRequest(BaseModel):
+    user_name: str
+    email: str
+    first_name: str
+    last_name: str
+    password: str
+    role: str
+
+
+# Create user endpoint (example for learning purpose)
+# This route will be registered in main.py using include_router()
+@router.post("/auth")
+async def create_user(create_user_request: CreateUserRequest):
+
+    # Convert Pydantic request model into ORM model
+    # Note: We cannot directly use **model_dump()
+    # because the password must be processed (hashed) first
+    # This part will be improved later
+    create_user_model = Users(
+        email=create_user_request.email,
+        username=create_user_request.user_name,
+        first_name=create_user_request.first_name,
+        last_name=create_user_request.last_name,
+        role=create_user_request.role,
+
+        # Temporary: store raw password (for learning only)
+        # In real projects, always hash passwords before saving
+        hashed_password=create_user_request.password,
+
+        is_active=True
+    )
+
+    # Temporary: return ORM object without saving to database
+    # Database session and commit will be added later
+    return create_user_model
+
+```
+
+#### 123. FastAPI Project: Hash User's Password
+
+Because we do not want to save passwords directly in our database, we need to **hash** users' passwords.
+
+1. `passlib` and `bcrypt` are used in our application.
+
+   ```bash
+   pip install passlib
+   pip install bcypt==4.0.1
+   ```
+
+2. Create a password hashing context using bcrypt algorithm
+   - **bcrypt_context** will be used to hash and verify passwords
+
+   ```python
+   from passlib.context import CryptContext
+   bcrypt_context = CryptContext(schemes=['bcrypt'], depreciated='auto')
+   ```
+
+3. Hash the user's plain text password before storing it
+   - In `User`:
+
+   ```python
+   hashed_password = bcrypt_context.hash(create_user_request.password),
+   ```
+
+#### 124. FastAPI Project: Save User to Database
+
+1. Import `Depends`, `Session`, `Annotated`, `status`
+
+   ```
+   from fastapi import APIRouter, Depends
+   from sqlalchemy.orm import Session
+   from typing import Annotated
+   from starlette import status
+   ```
+
+2. Import `SessionLocal`
+
+   ```
+   from database import SessionLocal
+   ```
+
+3. Write dependency injection
+
+   ```
+   @router.post("/auth", status_code=status.HTTP_201_CREATED)
+   async def create_user(db: db_dependency,
+                         create_user_request: CreateUserRequest):
+   ```
+
+4. Add and commit to db
+
+   ```python
+   db.add(create_user_model)
+   db.commit()
+   ```
+
+#### 125. FastAPI Project: Authenticate A User
+
+Authentication and authorization is introduced in the following serveral videos.
+
+Here, we create a new endpoint, `/token`, which return a token (JWT) including all information about a user.
+
+###### Login Authentication – Step-by-Step Notes
+
+1. Install multipart support
+   - Without this package, OAuth2 login will not work.
+
+     ```bash
+     pip install python-multipart
+     ```
+
+2. Import OAuth2 login form
+   - FastAPI uses this class to extract login credentials.
+
+   - Provides a standard login form structure
+
+     ```python
+     from fastapi.security import OAuth2PasswordRequestForm
+     ```
+
+3. Create user authentication function
+
+   ```python
+   # Verify user credentials (username + password)
+   def authenticate_user(username: str, password: str, db):
+
+       # Find user by username in the database
+       user = db.query(Users).filter(Users.username == username).first()
+
+       # If user does not exist, authentication fails
+       if not user:
+           return False
+
+       # Verify the input password against the stored hashed password
+       if not bcrypt_context.verify(password, user.hashed_password):
+           return False
+
+       return True				# Authentication successful
+   ```
+
+4. Implement login endpoint
+   - Receive form → Authenticate → Return result
+
+     ```python
+     # Login endpoint for generating access tokens (authentication)
+     @router.post("/token")
+     async def login_for_access_token(
+         form_data: Annotated[OAuth2PasswordRequestForm, Depends()],  # Get login form data
+         db: db_dependency                                           # Inject database session
+     ):
+
+         # Check if username and password are valid
+         user = authenticate_user(form_data.username, form_data.password, db)
+
+         # If authentication fails, return error message
+         if not user:
+             return "Failed Authentication"
+
+         # If authentication succeeds, return success message
+         # (Token generation will be added later)
+         return "Successful Authentication"
+     ```
+
+5. Test login in Swagger UI
+   - Login form appears with: username and password
+
+#### 126. JSON Web Token (JWT) Overview
+
+###### What is a JSON Web Token?
+
+`JSON Web Token`is a self-contained way to securely transmit data and information between two parties using a **JSON Object**.
+
+- It can be trusted because each JWT can be digitally assigned, so server can know if the JWT has been changed or not.
+- JWT should be used in **authorization**, not **authentication**
+- Test and learn more about JWT at [JSON Web Tokens](https://www.jwt.io/)
+
+###### JSON Web Token Structure
+
+A JWT is created of three separate parts, each of them separated with dot (.)
+
+```
+aaaaaaa.bbbbbb.cccccc
+```
+
+- Header (a)
+
+  The JWT header is encoded using Base64
+  - alg: The algorithm of signing
+  - typ: the specific type of token
+
+- Payload (b)
+
+  A JWT payload consists of the **data**, and encoded using Base64
+
+- Signature (c)
+
+  A JWT signature is created using the algorithm in the header to hash out the encoded header, encoded payload with a secret.
+  - The **secret** is saved on the server so that the client does not have access to it.
+
+###### JWT Example
+
+1. JWT Header
+
+   ```json
+   {
+     "alg": "HS256",
+     "typ": "JWT"
+   }
+   ```
+
+2. JWT Payload
+
+   ```json
+   {
+     "sub": "123456789",
+     "name": "Eric Roby",
+     "given_name": "Eric",
+     "family_name": "Roby",
+     "email": "codingwithroby@email.com",
+     "admin": true
+   }
+   ```
+
+3. JWT
+
+   ```
+   HMACSHA256(
+   	base64UrlEncode(header) + "." +
+   	base64UrlEncode(payload),
+   	learnonline)
+   ```
+
+#### 127. FastAPI Project: Encode A JSON Web Token (JWT)
+
+1. Install necessary library
+
+   ```bash
+   pip install "python-jose[cryptography]"
+   ```
+
+2. Generate your secret key
+   - Generate your secret key using `openssl`
+
+     ```bash
+     openssl rand -hex 32
+     ```
+
+   - Write your secret key and algorithm in your application
+
+     ```python
+     SECRET_KEY = 'xxx'
+     ```
+
+3. Write encoder function
+
+   ```python
+   from datetime import timedelta, datetime, timezone
+   from jose import jwt
+
+   def create_access_token(username: str, user_id: str, expires_delta: timedelta):
+       # Create JWT payload (user identity information)
+       encode = {
+           "sub": username,   # Subject (usually the username)
+           "id": user_id      # User ID
+       }
+
+       # Calculate token expiration time (UTC)
+       expired = datetime.now(timezone.utc) + expires_delta
+
+       # Add expiration time to payload
+       encode.update({"exp": expired})
+
+       # Encode and sign the JWT using secret key and algorithm
+       return jwt.encode(encode, SECRET_KEY, algorithm=ALGORITHM)
+   ```
+
+4. Complet the
+   - Set response model
+
+     ```python
+     class Token(BaseModel):
+         access_token: str
+         token_type: str
+     ```
+
+   - Login → Verify → Generate Token → Return Token
+
+     ```python
+     # Login endpoint that returns a JWT access token
+     @router.post("/token", response_model=Token)
+     async def login_for_access_token(form_data: Annotated[OAuth2PasswordRequestForm, Depends()], db: db_dependency):
+         # Authenticate user using username and password
+         user = authenticate_user(form_data.username, form_data.password, db)
+
+         # If authentication fails, return 401
+         if not user:
+             raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid username or password")
+
+         # Generate JWT access token (valid for 20 minutes)
+         token = create_access_token(user.username, user.id, timedelta(minutes=20))
+
+         # Return token in standard OAuth2 format
+         return {"access_token": token, "token_type": "bearer"}
+     ```
+
+#### 128. FastAPI Project: Decode a JSON Web Token (JWT)
+
+```python
+oauth2_bearer = OAuth2PasswordBearer(tokenUrl='token')
+```
+
+```python
+from fastapi.security import OAuth2PasswordBearer
+from jose import jwt, JWTError
+
+
+# Dependency function to get the currently logged-in user
+# It verifies the JWT and extracts user information
+async def get_current_user(
+    token: Annotated[str, Depends(oauth2_bearer)]  # Get token from Authorization header
+):
+
+    try:
+        # Decode and verify the JWT using secret key and algorithm
+        payload = jwt.decode(token, SECRET_KEY, ALGORITHM)
+
+        # Extract user information from token payload
+        username: str = payload.get("sub")   # Subject (username)
+        user_id: int = payload.get("id")     # User ID
+
+        # If required fields are missing, authentication fails
+        if username is None or user_id is None:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Could not validate user."
+            )
+
+        # Return user info (can be used in protected endpoints)
+        return {
+            "username": username,
+            "id": user_id
+        }
+
+
+    # If token is invalid, expired, or tampered with
+    except JWTError:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Could not validate user."
+        )
+
+```
+
+#### 129. FastAPI Project: Authentication Enhancement
+
+To seperate auth-related endpoints,
+
+```python
+# Create a router for authentication-related endpoints
+# prefix → adds "/auth" to all routes in this module
+# tags   → groups these routes under "auth" in Swagger UI
+router = APIRouter(
+    prefix="/auth",
+    tags=["auth"]
+)
+```
+
+#### Auth – Self Review Notes
+
+The authentication system is built using OAuth2 password flow with JWT-based authorization, bcrypt password hashing, and FastAPI dependency injection for secure and scalable user authentication.
+
+| Category             | Technology / Library   | Purpose                  | Description                                                      |
+| -------------------- | ---------------------- | ------------------------ | ---------------------------------------------------------------- |
+| Framework            | FastAPI                | API Framework            | Handles routing, dependency injection, and request processing    |
+| Protocol             | OAuth2 (Password Flow) | Authentication Standard  | Provides standardized login workflow using username and password |
+| Token System         | JWT (JSON Web Token)   | Stateless Authentication | Stores user identity in signed tokens for authorization          |
+| Security             | Passlib + Bcrypt       | Password Hashing         | Encrypts passwords before storing in the database                |
+| Cryptography         | Python-JOSE            | JWT Encryption           | Encodes and decodes JWT tokens with digital signatures           |
+| Dependency Injection | Depends / Annotated    | Dependency Management    | Injects database sessions and authentication logic               |
+| Token Transport      | Bearer Token           | Authorization Header     | Sends JWT via `Authorization: Bearer <token>`                    |
+| Validation           | Pydantic               | Data Validation          | Validates login and registration requests                        |
+| ORM                  | SQLAlchemy             | User Data Access         | Queries and manages user records                                 |
+| API Docs             | Swagger (OpenAPI)      | API Testing              | Provides interactive login and token testing interface           |
+
+###### Source Code
+
+`auth.py`
+
+```python
+from datetime import timedelta, datetime, timezone
+from typing import Annotated
+from fastapi import APIRouter, Depends, HTTPException
+from pydantic import BaseModel
+from sqlalchemy.orm import Session
+from starlette import status
+from database import SessionLocal
+from models import Users
+from passlib.context import CryptContext
+from fastapi.security import OAuth2PasswordRequestForm, OAuth2PasswordBearer
+from jose import jwt, JWTError
+
+# Create a router instance for grouping related endpoints
+router = APIRouter(
+    prefix="/auth",
+    tags=['auth']
+)
+
+SECRET_KEY = 'xxx'
+ALGORITHM = 'HS256'
+
+# Create a password hashing context using bcrypt algorithm
+# This is used to securely hash and verify passwords
+bcrypt_context = CryptContext(schemes=['bcrypt'], deprecated='auto')
+
+oauth2_bearer = OAuth2PasswordBearer(tokenUrl='auth/token')
+
+
+class CreateUserRequest(BaseModel):
+    user_name: str
+    email: str
+    first_name: str
+    last_name: str
+    password: str
+    role: str
+
+class Token(BaseModel):
+    access_token: str
+    token_type: str
+
+
+
+def get_db():
+    db = SessionLocal()
+
+    try:
+        yield db        # Give the session to FastAPI
+    finally:
+        db.close()      # Always close the session after request ends
+
+
+# Create a reusable database dependency type
+db_dependency = Annotated[Session, Depends(get_db)]
+
+def authenticate_user(username:str, password:str, db):
+    user = db.query(Users).filter(Users.username == username).first()
+    if not user:
+        return False
+    if not bcrypt_context.verify(password, user.hashed_password):
+        return False
+    return user
+
+def create_access_token(username: str, user_id: str, expires_delta: timedelta):
+    # Create JWT payload (user identity information)
+    encode = {
+        "sub": username,   # Subject (usually the username)
+        "id": user_id      # User ID
+    }
+
+    # Calculate token expiration time (UTC)
+    expired = datetime.now(timezone.utc) + expires_delta
+
+    # Add expiration time to payload
+    encode.update({"exp": expired})
+
+    # Encode and sign the JWT using secret key and algorithm
+    return jwt.encode(encode, SECRET_KEY, algorithm=ALGORITHM)
+
+# Dependency function to get the currently logged-in user
+# It verifies the JWT and extracts user information
+async def get_current_user(
+    token: Annotated[str, Depends(oauth2_bearer)]  # Get token from Authorization header
+):
+
+    try:
+        # Decode and verify the JWT using secret key and algorithm
+        payload = jwt.decode(token, SECRET_KEY, ALGORITHM)
+
+        # Extract user information from token payload
+        username: str = payload.get("sub")   # Subject (username)
+        user_id: int = payload.get("id")     # User ID
+
+        # If required fields are missing, authentication fails
+        if username is None or user_id is None:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Could not validate user."
+            )
+
+        # Return user info (can be used in protected endpoints)
+        return {
+            "username": username,
+            "id": user_id
+        }
+
+
+    # If token is invalid, expired, or tampered with
+    except JWTError:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Could not validate user."
+        )
+
+
+
+# Authentication-related endpoint
+# This route will be registered in main.py using include_router()
+@router.post("/", status_code=status.HTTP_201_CREATED)
+async def create_user(db: db_dependency,
+                      create_user_request: CreateUserRequest):
+    # We can not use **CreateUserRequest.model_dump()
+    # Because the password and hashed_password do not match
+    # and need further processing
+    create_user_model = Users(
+        email = create_user_request.email,
+        username = create_user_request.user_name,
+        first_name = create_user_request.first_name,
+        last_name = create_user_request.last_name,
+        role = create_user_request.role,
+        hashed_password = bcrypt_context.hash(create_user_request.password),
+        is_active = True
+    )
+
+    db.add(create_user_model)
+    db.commit()
+
+
+# Login endpoint that returns a JWT access token
+@router.post("/token", response_model=Token)
+async def login_for_access_token(form_data: Annotated[OAuth2PasswordRequestForm, Depends()], db: db_dependency):
+    # Authenticate user using username and password
+    user = authenticate_user(form_data.username, form_data.password, db)
+
+    # If authentication fails, return 401
+    if not user:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid username or password")
+
+    # Generate JWT access token (valid for 20 minutes)
+    token = create_access_token(user.username, user.id, timedelta(minutes=20))
+
+    # Return token in standard OAuth2 format
+    return {"access_token": token, "token_type": "bearer"}
+```
+
+## Section 11. Authenticate Requests
+
+#### 130. FastAPI Project: POST Todo (User ID)
+
+1. Define Authentication Dependency
+
+   Use `Depends(get_current_user)` to extract and validate the JWT token from the request header.
+   - This dependency will return the current user info after decoding the token.
+
+   - All protected routes should use this dependency.
+
+     ```python
+     from .auth import get_current_user
+     user_dependency = Annotated[dict, Depends(get_current_user)]
+     ```
+
+2. Verify User and Bind Data to User
+
+   Inject `user` into the route so FastAPI automatically checks the token.
+   - First, verify that `user` is not `None` to block unauthenticated access.
+
+   - When creating data, use `user['id']` as `owner_id` to link records to the logged-in user.
+
+     ```python
+     @router.post("/todo", status_code=status.HTTP_201_CREATED)
+     async def create_todo(user: user_dependency, db: db_dependency, todo_request: TodoRequst):
+         if user is None:
+             raise HTTPException(status_code=401, detail='Authentication Failed')
+
+         # Convert Pydantic model to ORM model
+         # Remember to add foreign key
+         todo_model = Todos(**todo_request.model_dump(), owner_id = user.get('id'))
+
+         db.add(todo_model)          # Add the new record to the session
+         db.commit()                 # Save changes to the database
+     ```
+
+3. Send Request with Bearer Token
+   - The client must include a valid JWT token in the `Authorization` header using the `Bearer` format.
+
+   - The backend uses this token to identify the user. Missing or invalid tokens will result in a 401 error.
+
+     ```bash
+     curl -X 'POST' \
+       'http://localhost:8000/todo' \
+       -H 'accept: application/json' \
+       -H 'Authorization: Bearer aaa.bbb.ccc' \
+       -H 'Content-Type: application/json' \
+       -d '{
+       "title": "Learn FastAPI",
+       "description": "Because it is awesome",
+       "priority": 5,
+       "complete": false
+     }'
+     ```
+
+#### 131. FastAPI Project: Get All Todos (User ID)
+
+###### Get All Todos of Specific User
+
+Instead of fetching all todos in the database, this endpoint only returns the todos that belong to the currently authenticated user.
+
+This ensures:
+
+- Users can only access their own data
+- Data privacy and security are enforced
+- The API follows access control rules
+
+```python
+# Get all todos that belong to the current user
+# The user information is extracted from the JWT token
+@router.get("/", status_code=status.HTTP_200_OK)
+async def read_all(user: user_dependency, db: db_dependency):
+    if user is None:
+      raise HTTPException(status_code=401, detail='Authentication Failed')
+
+    # Query todos where owner_id matches the current user's ID
+    return db.query(Todos).filter(Todos.owner_id == user.get("id")).all()
+```
+
+#### 132. FastAPI Project: GET Todo (ID + User ID)
+
+Here, a simple filter `.filter(Todos.owner_id == user.get('id'))` will do the trick
+
+```python
+# Inject database session: db_dependency
+# Path parameter (must be > 0): Path(gt=0)
+@router.get("/todo/{todo_id}", status_code=status.HTTP_200_OK)
+async def read_todo(user: user_dependency, db: db_dependency, todo_id: int = Path(gt=0)):
+    if user is None:
+        raise HTTPException(status_code=401, detail='Authentication Failed')
+
+    # Query the Todos table and find the record by ID
+    todo_model = db.query(Todos).filter(Todos.id == todo_id).filter(Todos.owner_id == user.get('id')).first()
+
+    # If the todo exists, return it
+    if todo_model is not None:
+        return todo_model
+
+    # If not found, return 404 error
+    raise HTTPException(status_code=404, detail="Todo not found.")
+```
+
+#### 133. FastAPI Project: PUT Todo (User ID)
+
+Same as above, we identify user by `user_dependency` and filter it by `filter(Todos.owner_id) == user.get('id')`
+
+```python
+@router.put("/todo/{todo_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def update_todo(user: user_dependency, db: db_dependency,todo_request: TodoRequst, todo_id: int = Path(gt=0)):
+    if user is None:
+        return HTTPException(status_code=401, detail='Authentication Failed')
+
+    # Find the todo item by ID
+    todo_model = db.query(Todos).filter(Todos.id == todo_id).filter(Todos.owner_id == user.get('id')).first()
+
+    # If not found, return 404 error
+    if todo_model is None:
+        raise HTTPException(status_code=404, detail="Todo not found.")
+
+    # Update fields on the existing ORM object
+    # This allows SQLAlchemy to track changes and perform an UPDATE
+    todo_model.title = todo_request.title
+    todo_model.description = todo_request.description
+    todo_model.priority = todo_request.priority
+    todo_model.complete = todo_request.complete
+
+    db.add(todo_model)              # Add updated object to session
+    db.commit()						# Save changes to the database
+```
+
+#### 134. FastAPI Project: Delete Todo (User ID)
+
+The logic is totally same as above.
+
+```python
+@router.delete("/todo/{todo_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_todo(user: user_dependency, db: db_dependency, todo_id: int = Path(gt=0)):
+    if user is None:
+        raise HTTPException(status_code=401, detail='Authentication Failed')
+
+    todo_model = db.query(Todos).filter(Todos.id == todo_id).filter(Todos.owner_id == user.get('id')).first()
+
+    if todo_model is None:
+        raise HTTPException(status_code=404, detail="Todo not found")
+
+    db.delete(todo_model)           # Delete the record
+    db.commit()                     # Save changes to the database
+```
+
+#### 135. FastAPI Project: Admin Router
+
+In this section, we are going to create a router called `admin`, where only user with role of `admin` can have access to its endpoints.
+
+1. Create `admin.py` in `router` folder:
+   - This file should have `router`,
+   - This file should import `get_current_user` from `auth`, and `SessionLocal` from `database`
+   - This file should have `db_dependency` and `user_dependency`
+
+2. Add `role` key/value pairs in jwt encoding (in `auth.py`)
+   - Add role in `create_access_token`, in the `encode` dictionary
+
+     ```python
+     def create_access_token(username: str, user_id: str, role: str, expires_delta: timedelta):
+         # Create JWT payload (user identity information)
+         encode = {
+             "sub": username,   # Subject (usually the username)
+             "id": user_id,      # User ID
+             "role": role
+         }
+
+         # Calculate token expiration time (UTC)
+         expired = datetime.now(timezone.utc) + expires_delta
+
+         # Add expiration time to payload
+         encode.update({"exp": expired})
+
+         # Encode and sign the JWT using secret key and algorithm
+         return jwt.encode(encode, SECRET_KEY, algorithm=ALGORITHM)
+     ```
+
+   - Add role in `get_user_role`, returnning `user_role`
+
+     ```python
+     # Dependency function to get the currently logged-in user
+     # It verifies the JWT and extracts user information
+     async def get_current_user(
+         token: Annotated[str, Depends(oauth2_bearer)]  # Get token from Authorization header
+     ):
+
+         try:
+             # Decode and verify the JWT using secret key and algorithm
+             payload = jwt.decode(token, SECRET_KEY, ALGORITHM)
+
+             # Extract user information from token payload
+             username: str = payload.get("sub")   # Subject (username)
+             user_id: int = payload.get("id")     # User ID
+             user_role: str = payload.get("role")
+
+             # If required fields are missing, authentication fails
+             if username is None or user_id is None:
+                 raise HTTPException(
+                     status_code=status.HTTP_401_UNAUTHORIZED,
+                     detail="Could not validate user."
+                 )
+
+             # Return user info (can be used in protected endpoints)
+             return {
+                 "username": username,
+                 "id": user_id,
+                 "user_role": user_role
+             }
+     ```
+
+3. Add endpoints for `admin`
+   - If the newly added `user_role` is not admin, this request will not be executed.
+
+   ```python
+   @router.get("/todo", status_code=status.HTTP_200_OK)
+   async def read_all(user: user_dependency, db: db_dependency):
+       if user is None or user.get("user_role") != "admin":
+           raise HTTPException(status_code=401, detail="Authentication Failed")
+       return db.query(Todos).all()
+   ```
+
+4. Add routers in `main.py`
+
+   ```
+   app.include_router(admin.router)    # Register admin-related routes
+   ```
+
+#### 137. FastAPI Project: Assignment Solution (User Route)
+
+1. Create `users.py` in `route` folder
+
+2. Set up router in this file
+
+   ```python
+   router = APIRouter(
+       prefix="/user",
+       tags=['user']
+   )
+   ```
+
+3. Get ready of the following variables
+   - `db_dependency`
+   - `user_dependency`
+   - `bcrypt_context`
+
+4. Add routers in `main.py`
+
+   ```
+   app.include_router(users.router)
+   ```
+
+5. Create `/` endpoint of `get_users`
+
+   ```python
+   @router.get("/", status_code=status.HTTP_200_OK)
+   async def get_user(user: user_dependency, db: db_dependency):
+       if user is None:
+           raise HTTPException(status_code=401, detail='Authentication failed')
+       user_model = db.query(Users).filter(Users.id == user.get("id")).first()
+       if user_model is None:
+           raise HTTPException(status_code=404, detail='User not found')
+       return user_model
+   ```
+
+6. Create `/password` endpoint to change a user's password
+   - Create a Pydantic class of `UserVerification`
+
+     ```python
+     class UserVerfification(BaseModel):
+         password: str
+         new_password: str = Field(min_length=6)
+     ```
+
+   - Create a `PUT` method
+
+     ```python
+     @router.put("/password", status_code=status.HTTP_204_NO_CONTENT)
+     async def change_password(user: user_dependency, db: db_dependency, user_verification : UserVerfification):
+         if user is None:
+             raise HTTPException(status_code=401, detail='Authentication failed')
+         user_model = db.query(Users).filter(Users.id == user.get('id')).first()
+         if not bcrypt_context.verify(user_verification.password, user_model.hashed_password):
+             raise HTTPException(status_code=401, detail='Error on password')
+         user_model.hashed_password = bcrypt_context.hash(user_verification.new_password)
+         db.add(user_model)
+         db.commit()
+     ```
+
+## Section 12: Large Production Database Setup
+
+#### 138. FastAPI Project: Production DBMS
+
+In this section, we will
+
+1. Install the production DBMS
+
+2. Setup the table and data within the production DBMS
+
+3. Connect the production DBMS to our application
+
+4. Push data from application to our production DBMS
+
+###### Production Database
+
+This section we will go over installing a **production relational database** for your application.
+
+- MySQL
+
+- PostgreSQL
+
+###### Difference between SQLite and Production DBMS
+
+SQLite:
+
+- Runs in-memery or local-disk
+- Can be deployed along with your application
+- Emphasize economy, efficiency, and simplicity
+
+Production DBMS
+
+- Runs on their own server and port
+- Needed to be deployed separately from your application
+- Focus on sealability, concurrency, and control
+
+#### 139. PostgreSQL Introduction
+
+###### What is PostgreSQL
+
+PostgreSQL is extremely popular and production-ready.
+
+It is an **open-source** relational database management system.
+
+It requires a server to be run.
+
+###### Who Use/Used PostgreSQL
+
+Apple, Reddit and Twitch
+
+#### 141. FastAPI Project: PostgreSQL Mac Installation
+
+[Official Website of PostgreSQL](https://www.postgresql.org/)
+
+###### Installation of Postgres.app
+
+1. Download PostgreSQL from [Download](https://postgresapp.com/downloads.html)
+
+2. Install Postgres.app
+
+3. Initialize Postgres
+
+4. In the [Installation Page](https://postgresapp.com/), copy and run the following command in terminal
+
+   ```bash
+   sudo mkdir -p /etc/paths.d &&
+   echo /Applications/Postgres.app/Contents/Versions/latest/bin | sudo tee /etc/paths.d/postgresapp
+   ```
+
+5. Install [pgAdmin](https://www.postgresql.org/download/) to our system
