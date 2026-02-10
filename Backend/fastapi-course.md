@@ -3102,3 +3102,545 @@ Apple, Reddit and Twitch
    ```
 
 5. Install [pgAdmin](https://www.postgresql.org/download/) to our system
+
+#### 142. FastAPI Project: PostegreSQL Create Database Table
+
+In this section, we are going to create a production database.
+
+1. In PgAdmin, register a server
+   1. Make sure Postgres.app is running
+   2. Servers -> register
+   3. Set the server
+      - General -> Name -> `TodoApplicationServer`
+      - Connection -> Host name/address -> `localhost`
+      - Password -> `yourpassword`
+      - Click `save`
+
+2. Check the server created
+   - The server created will host `databases` and `users`
+   - Make sure that there is a supersuer called `postgres`
+     - Right click user `postgres` -> `Privileges` -> make sure `superuser` is checked
+
+3. Create database
+   - There are two databases already exists
+     - Database named `your-user-name`
+     - Database named `postgres`
+   - We are going create `TodoApplicationDatabase`
+     - Right click `Databases`
+     - Create -> Database ->
+       - General: Database `TodoApplicationDatabase`
+       - Definition -> Template -> `template0`
+       - Click Save
+
+4. Create tables
+   - Tables are shown in Databases -> TodoAppDatabase -> `schema` -> `Tables`
+
+   - We are going to create tables with `Query Tools` at the top bar.
+
+     ```sql
+     DROP TABLE IF EXISTS users;
+
+     CREATE TABLE users (
+       id SERIAL,
+       email varchar(200) DEFAULT NULL,
+       username varchar(45) DEFAULT NULL,
+       first_name varchar(45) DEFAULT NULL,
+       last_name varchar(45) DEFAULT NULL,
+       hashed_password varchar(200) DEFAULT NULL,
+       is_active boolean DEFAULT NULL,
+       role varchar(45) DEFAULT NULL,
+       PRIMARY KEY (id)
+     );
+
+     DROP TABLE IF EXISTS todos;
+
+     CREATE TABLE todos (
+       id SERIAL,
+       title varchar(200) DEFAULT NULL,
+       description varchar(200) DEFAULT NULL,
+       priority integer  DEFAULT NULL,
+       complete boolean  DEFAULT NULL,
+       owner_id integer  DEFAULT NULL,
+       PRIMARY KEY (id),
+       FOREIGN KEY (owner_id) REFERENCES users(id)
+     );
+     ```
+
+   - Then, we will have our two new tables, `users` and `todos`
+
+     ```
+     NOTICE:  table "users" does not exist, skipping
+     NOTICE:  table "todos" does not exist, sipping
+     CREATE TABLE
+
+     Query returned successfully in 31 msec.
+     ```
+
+#### 143. FastAPI Project: PostgreSQL Connect to FastAPI
+
+Let's connect our FastAPI application to this database.
+
+1. Install necessary library
+
+   ```bash
+   pip install psycopg2-binary-2.9.6
+   ```
+
+2. Change database connection url:
+
+   ```python
+   # Database connection URL (connects to a local SQLite file)
+   # SQLALCHEMY_DATABASE_URL = "sqlite:///./todosapp.db"
+
+   # Database connection URL for PostgreSQL
+   # Format: postgresql://<username>:<password>@<host>/<database_name>
+   # This connects the application to the local PostgreSQL database
+   SQLALCHEMY_DATABASE_URL = "postgresql://xxx:your-password@localhost/TodoApplicationDatabase"
+   ```
+
+3. Adjust the engine configuration
+
+   ```python
+   # Create database engine (responsible for connecting to the database)
+   # SQLite requires check_same_thread=False for FastAPI (multi-thread support)
+   # engine = create_engine(
+   #     SQLALCHEMY_DATABASE_URL,
+   #     connect_args={"check_same_thread": False}
+   # )
+
+   # PostgreSQL (or other production databases) engine configuration
+   # No special thread configuration is required
+   engine = create_engine(SQLALCHEMY_DATABASE_URL)
+   ```
+
+4. Then, postgres is ready for usage
+
+   ```bash
+   uvicorn main:app --reload
+   ```
+
+#### 144. MySQL Introduction
+
+###### What is MySQL
+
+- Open-source relational database management system
+- Require a server
+- Production ready
+- Scalable
+- Secure
+
+###### Who Uses/Used MySQL
+
+Facebook/YouTube/Tesla
+
+#### 146. FastAPI Project: MySQL Installation (Mac)
+
+###### Download MySQL
+
+[Official Website](https://www.mysql.com/)
+
+1. Find MySQL downloads
+   - MySQL Download -> MySQL Community Server
+   - Download ARM, DMG Archive
+2. Installing MySQL
+   - Install for all users
+   - Set passwords for `root` user
+3. Check MySQL in our system
+   - Click Apple sign -> `System Preference`
+   - MySQL is at the bottom
+
+Because the following section will use PostgreSQL, the rest part of MySQL tutorial is skipped
+
+## Section 13: Project 3.5 Alembic Data Migration
+
+#### 149. Alembic Data Migration Overview
+
+###### What is Alembic
+
+`Alembic` is a **light-weight** data migration tool when using SQLAlchemy
+
+- Allow us to plan, transfer, and upgrade resources within databases
+- Allow us to **change** a SQLAlchemy database **table** after it has been created
+- Allow us to modify the database schemes
+
+###### How does Alembic Work
+
+1. We already have some data within our database
+2. Alembic helps us to create a new column on the table that already exists
+3. For example: a `phone-number` column for `users` table
+
+#### 150. Alembic Introduction
+
+1. Installing **Alembic** into our project
+
+   ```bash
+   pip install alembic
+   ```
+
+2. Alembic commands
+
+   ```bash
+   alembic init <folder name>
+   alembic revision -m <message>
+   alembic update <revision #>
+   alembic downgrade -1
+   ```
+
+3. When using Alembic, two new items will appear in our directory
+   - alembic.ini
+   - alembic directory
+     - versions
+     - env.py
+     - README
+     - script.py.mako
+
+#### 151. Alembic Installation and Setup
+
+In this section, alembic is added to modify the databases without deleting it.
+
+（following the instructions above)
+
+#### 152. Alembic Revisions Overview
+
+###### Alembic Revision
+
+`Alembic Revision` is how we can create a new alembic file where we can add some type of database upgrade.
+
+It:
+
+- Create a new file where we can write the upgrade code
+- Each revision will have a Revision Id
+
+```bash
+alembic revision -m "create phone number col on users table"
+```
+
+###### Alembic Upgrade
+
+`Alembic Upgrade` is how we actually run the migration.
+
+The following code will enhance our database to now have a new column within our user tables called `phone_number`
+
+```python
+def upgrade() -> None:
+	op.add_column('users', sa.Column('phone_number', sa.String(), nullable=True))
+```
+
+To run the alembic upgrade:
+
+```bash
+alembic upgrade <revision id>
+```
+
+###### Alembic Downgrade
+
+`Alembic Downgrade` is how we revert a migration.
+
+```python
+def downgrade() -> None:
+	op.drop_column('users', 'phone_number')
+```
+
+To run the alembic downgrade:
+
+```bash
+alembic downgrade -1
+```
+
+#### 153. Alembic Revision Upgrade
+
+In this video, we configure **Alembic database migrations** for our project and apply a schema change step by step.
+
+1. Modify the `users` model in `models.py`
+   - First, we update the ORM model by adding a new column to the `users` table.
+
+     ```python
+     phone_number = Column(String)
+     ```
+
+   - This change only updates the Python model and **does not affect the database yet**.
+
+2. Configure the database URL in `alembic.ini`
+   - Next, we set the database connection string in `alembic.ini`. You can refer to `database.py` to ensure the URL is consistent.
+
+     ```ini
+     # sqlalchemy.url = driver://user:pass@localhost/dbname
+     sqlalchemy.url = postgresql://xxx:your-password@localhost/TodoApplicationDatabase
+     ```
+
+   - This allows Alembic to connect to the correct PostgreSQL database.
+
+3. Update `env.py` in the `alembic` directory
+
+- To enable Alembic’s **autogenerate** feature, we must link Alembic to our SQLAlchemy models.
+
+  ```python
+  import models
+
+  # this is the Alembic Config object, which provides
+  # access to the values within the .ini file in use.
+  config = context.config
+
+  # Interpret the config file for Python logging.
+  # This line sets up loggers basically.
+  # if config.config_file_name is not None:
+  #     fileConfig(config.config_file_name)
+  fileConfig(config.config_file_name)
+
+  # add your model's MetaData object here
+  # for 'autogenerate' support
+  # from myapp import mymodel
+  # target_metadata = mymodel.Base.metadata
+  # ↓ target_metadata = None
+  target_metadata = models.Base.metadata
+  ```
+
+- By setting `target_metadata`, Alembic can compare the current database schema with our ORM models.
+
+4. Create a new Alembic revision
+   - Now we generate a migration file to record the schema change.
+
+     ```bash
+     alembic revision -m "create phone number for user column"
+     ```
+
+   - After running this command, a new `.py` file will be created in the `alembic/versions` directory.
+
+   - Example migration file:
+
+     ```python
+     def upgrade() -> None:
+         """Upgrade schema."""
+         op.add_column('users', sa.Column('phone_number', sa.String(), nullable = True))
+     ```
+
+   - At this stage, **the database is still unchanged**—we have only created a migration script.
+
+5. Apply the migration to the database
+   - Finally, we run the upgrade command to apply the schema change.
+
+     ```bash
+     alembic upgrade <version #>
+     ```
+
+   - After the upgrade completes successfully, you should see output similar to:
+
+     ```bash
+     # INFO  [alembic.runtime.migration] Context impl PostgresqlImpl.
+     # INFO  [alembic.runtime.migration] Will assume transactional DDL.
+     # INFO  [alembic.runtime.migration] Running upgrade  -> xxx, create phone number for user column
+     ```
+
+   - This confirms that the database schema has been updated.
+
+#### 154. Alembic Revision Downgrade
+
+In the same migration file, we can set the `downgrade` function:
+
+```python
+def downgrade() -> None:
+    """Downgrade schema."""
+    op.drop_column('users', 'phone_number')
+```
+
+If we would like to reverse what we have done, run the command below:
+
+```bash
+alembic downgrade -1
+```
+
+#### 155. Alembic Assignment
+
+1. Add a `phone number` field as required when we create a new user within our `auth.py` file
+
+2. Create a new `@put` request in our `users.py` file that allows a user to update their `phone_number`
+
+#### 156. Alembic Solution
+
+###### Assignment 1
+
+1. Modify `CreateUserRequest`
+
+   ```python
+   class CreateUserRequest(BaseModel):
+       user_name: str
+       email: str
+       first_name: str
+       last_name: str
+       password: str
+       role: str
+       phone_number: str
+   ```
+
+2. Modify `create_user_model` in `create_user` endpoint accordingly
+
+###### Assignment 2
+
+1. Add a new endpoint `change_phone_number` in `users.py`
+
+   ```python
+   @router.put("/phonenumber/{phone_number}", status_code=status.HTTP_204_NO_CONTENT)
+   async def change_phone_number(user:user_dependency, db:db_dependency, phone_number: str):
+       if user is None:
+           raise HTTPException(status_code=401, detail='Authentication Failed')
+       user_model = db.query(Users).filter(Users.id == user.get('id')).first()
+       user_model.phone_number = phone_number
+       db.add(user_model)
+       db.commit()
+   ```
+
+## Section 14: Project 4 - Unit & Integration Test
+
+#### 157. Testing Overview
+
+This section includes `unit testing` and `intergration testing`
+
+###### What is Testing
+
+`Testting` is a way for us to make sure our application is working as intended
+
+It is
+
+- Part of Software Development Lifecycle (SDLC) that identify bugs, errors, and defects
+- Make sure user requirements and specfication
+
+Includes:
+
+- Manual Testing
+- Unit Testing
+- Intergration Testing
+
+###### Unit Testing
+
+It involves testing `individual components` or `units` of software in isolation from the rest of the application.
+
+- **Unit** is testable part of the application
+- Tests are automated and executed by a `testing framework` (Pytest)
+- Unit testing helps to identify bugs early in development process
+
+###### Integration Testing
+
+It focuses on testing the `interaction` between different units or components.
+
+- The scope is broader than unit testing
+- It helps to identify problems for the entire solution
+- Examples like calling an API endpoint and make sure the correct solution is returned.
+
+###### Pytest
+
+Pytest is a popular testing framework for Python.
+
+- Simple & Flexible
+- Fixtures
+- Parameterized Testing
+
+#### 158. Getting Started with Testing Overview
+
+A typical pytest flow includes the following steps:
+
+1. Install `Pytest`
+
+   ```bash
+   pip install pytest
+   ```
+
+2. Create a new directory called `test`
+   - Init the directory with an `__init__.py`
+
+   - Inside the test directory, create a new file called `test_example.py`
+
+     ```python
+     def test_equal_or_not_equal():
+     	assert 3 == 3
+     ```
+
+   - `assert` means statement that checks if a condition is true.
+
+3. Run Pytest
+   - Run pytest in command line
+
+     ```bash
+     pytest
+     ```
+
+   - Pytest will run all tests automatically that sit within files that have the name `test` in them.
+
+4. Check the test results
+
+#### 159. Pytest Introduction
+
+(Follow the instructions above)
+
+#### 160. Pytest Basics Overview
+
+###### Pytest Basics
+
+In pytest, test cases are based on `assert` statements.
+Each `assert` checks whether a given expression evaluates to `True`. If the expression is `False`, the test fails.
+
+- Validate Integers
+
+  ```python
+  def test_equal():
+      # Check equality and inequality
+      assert 3 == 3
+      assert 3 != 2
+  ```
+
+- Validate Instances
+
+  ```python
+  def test_instance():
+      # Check object type using isinstance
+      assert isinstance("hello", str)
+      assert not isinstance("10", int)
+  ```
+
+- Validate Booleans
+
+  ```python
+  def test_boolean():
+      # Check boolean expressions
+      validated = True
+      assert validated
+      assert not ("hello" == "world")
+  ```
+
+- Validate Types
+
+  ```python
+  def test_type():
+      # Verify exact data types
+      assert isinstance("hello", str)
+      assert isinstance(10, int)
+  ```
+
+- Validate Greater Than & Less Than
+
+  ```python
+  def test_comparison():
+      # Compare numeric values
+      assert 7 > 3
+      assert 4 < 10
+  ```
+
+- Validate Types
+
+  ```python
+  def test_collections():
+      # Test list membership and logical functions
+      nums = [1, 2, 3, 4, 5]
+      flags = [False, False]
+
+      # Check if elements exist in the list
+      assert 1 in nums
+      assert 7 not in nums
+
+      # all() returns True if all elements are truthy
+      assert all(nums)
+
+      # any() returns True if at least one element is truthy
+      assert not any(flags)
+  ```
+
+#### 162. Pytest Object Overview
