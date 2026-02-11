@@ -4285,3 +4285,186 @@ Each `assert` checks whether a given expression evaluates to `True`. If the expr
   ```
 
 #### 162. Pytest Object Overview
+
+（to be continued)
+
+## Section 15: Project 5 - Full Stack Application
+
+#### 182. Full Stack Introduction
+
+In section, we will build a full-stack we application.
+
+This application will have a complete user interface. `Cookie` will also be used.
+
+#### 183. Setup Our FastAPI Application
+
+Add prefix and tags for our `todos` router:
+
+```python
+# Create a router instance for grouping related endpoints
+router = APIRouter(
+    prefix="/todos",
+    tags=['todos']
+)
+```
+
+#### 184. FastAPI Full Stack - Jinja Overview
+
+In this section, we will go over `Jinja` templating.
+
+###### What is Jinja?
+
+- Fast, expressive and extensible templating language
+- Able to write code similar to Python in the DOM
+- The template is passed data to render with final results
+
+###### What are Jinja Templating Tags and Scripts?
+
+Jinja tags allows developers to be confident while working with backend data, using tags that are similar to HTML.
+
+- Now image we have a list of todos that we retrieved from the database
+  - We can pass the entire list of todos to the front-end
+
+    ```python
+    context: {
+    "todos": todo_list
+    }
+    ```
+
+  - And loop through each todo with this simple `for` loop on the template
+
+    ```jinja2
+    {% for todo in todos %}
+    	Do something with todo
+    {% enfor %}
+    ```
+
+  - We can use Jinja templating language with `if else` statements
+
+    ```jinja2
+    {% if todos %}
+    	Display: {{ todos|length }} Todos
+    {% else %}
+    	You don't have any todos!
+    {% endif %}
+    ```
+
+#### 185. FastAPI Full Stack - Installation of Requirements
+
+1. Create a `templates` folder in the project root.
+   - This directory is used to store all Jinja2 HTML templates.
+   - FastAPI will load templates from this folder at runtime.
+
+2. Create `home.html` in the `templates` folder.
+   - This file defines the basic structure of the home page.
+
+     ```html
+     <!doctype html>
+     <html lang="en">
+       <head>
+         <meta charset="UTF-8" />
+         <title>TodoApp</title>
+       </head>
+       <body>
+         <h1>Welcome to this FastAPI Course!</h1>
+       </body>
+     </html>
+     ```
+
+3. Install `jinja2`
+   - Jinja2 is the template engine used for server-side rendering.
+
+     ```bash
+     pip install jinja2
+     ```
+
+4. Import required modules in `main.py`.
+   - `Request` represents the current HTTP request.
+
+   - `Jinja2Templates` provides template rendering support.
+
+     ```python
+     from fastapi import FastAPI, Request
+     from fastapi.templating import Jinja2Templates
+     ```
+
+5. Initialize the template engine.
+   - This configures the template loader.
+
+   - All templates will be resolved from the `templates` directory.
+
+     ```python
+     # Initialize Jinja2 template engine
+     # All HTML files should be placed in the "templates" directory
+     templates = Jinja2Templates(directory="templates")
+     ```
+
+6. Render the template in a route.
+
+   The `request` object must be included in the context for FastAPI templates.
+
+   ```python
+   # Register a GET route for the home page ("/")
+   @app.get("/")
+   def test(request: Request):
+       # Receive the current HTTP request object
+       # The request must be passed to the template context
+
+       # Render "home.html" using Jinja2
+       # Pass "request" so the template can access request data
+       return templates.TemplateResponse("home.html", {"request": request})
+   ```
+
+#### 186. FastAPI Full Stack -Setup CSS
+
+1. Create a `static` folder in the project root.
+   - This directory is used to store static assets.
+
+   - Common subfolders include `css/` and `js/`.
+
+   - Structure example:
+
+     ```
+     static/
+     ├── css/
+     │   └── base.css
+     └── js/
+     ```
+
+2. Create `base.css` in `css/`:
+
+   ```css
+   h1 {
+     color: red;
+   }
+   ```
+
+   - This file defines basic styling rules.
+
+3. Import `StaticFiles` in `main.py`.
+   - `StaticFiles` is used to serve static resources.
+
+     ```python
+     from fastapi.staticfiles import StaticFiles
+     ```
+
+4. Mount the static directory.
+
+   ```python
+   # Maps the `/static` URL path to the local `static/` folder.
+   # Enables FastAPI to serve CSS, JavaScript, and images.
+   app.mount("/static", StaticFiles(directory="static"), name="static")
+   ```
+
+5. After mounting, link the CSS file in `home.html`.
+   - `url_for()` dynamically generates the correct static file URL.
+
+   - Prevents hardcoding paths and improves portability.
+
+     ```css
+     <link
+       rel="stylesheet"
+       type="text/css"
+       href="{{ url_for('static', path='/css/base.css') }}"
+     />
+     ```
