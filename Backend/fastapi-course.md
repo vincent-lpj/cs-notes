@@ -3371,31 +3371,30 @@ In this video, we configure **Alembic database migrations** for our project and 
    - This allows Alembic to connect to the correct PostgreSQL database.
 
 3. Update `env.py` in the `alembic` directory
+   - To enable Alembic’s **autogenerate** feature, we must link Alembic to our SQLAlchemy models.
 
-- To enable Alembic’s **autogenerate** feature, we must link Alembic to our SQLAlchemy models.
+     ```python
+     import models
 
-  ```python
-  import models
+     # this is the Alembic Config object, which provides
+     # access to the values within the .ini file in use.
+     config = context.config
 
-  # this is the Alembic Config object, which provides
-  # access to the values within the .ini file in use.
-  config = context.config
+     # Interpret the config file for Python logging.
+     # This line sets up loggers basically.
+     # if config.config_file_name is not None:
+     #     fileConfig(config.config_file_name)
+     fileConfig(config.config_file_name)
 
-  # Interpret the config file for Python logging.
-  # This line sets up loggers basically.
-  # if config.config_file_name is not None:
-  #     fileConfig(config.config_file_name)
-  fileConfig(config.config_file_name)
+     # add your model's MetaData object here
+     # for 'autogenerate' support
+     # from myapp import mymodel
+     # target_metadata = mymodel.Base.metadata
+     # ↓ target_metadata = None
+     target_metadata = models.Base.metadata
+     ```
 
-  # add your model's MetaData object here
-  # for 'autogenerate' support
-  # from myapp import mymodel
-  # target_metadata = mymodel.Base.metadata
-  # ↓ target_metadata = None
-  target_metadata = models.Base.metadata
-  ```
-
-- By setting `target_metadata`, Alembic can compare the current database schema with our ORM models.
+   - By setting `target_metadata`, Alembic can compare the current database schema with our ORM models.
 
 4. Create a new Alembic revision
    - Now we generate a migration file to record the schema change.
@@ -3488,6 +3487,605 @@ alembic downgrade -1
        db.add(user_model)
        db.commit()
    ```
+
+## Project Review: Todo
+
+#### Project Directory Structure
+
+```
+todoapp/
+│
+├── alembic/                 # Database migration system
+│   ├── versions/            # Migration scripts (version history)
+│   ├── env.py               # Alembic runtime configuration
+│   ├── README               # Alembic documentation
+│   └── script.py.mako       # Migration template
+│
+├── routers/                 # API routing layer
+│   ├── __init__.py
+│   ├── admin.py             # Admin endpoints
+│   ├── auth.py              # Authentication endpoints
+│   ├── todos.py             # Todo management endpoints
+│   └── users.py             # User management endpoints
+│
+├── test/                    # Test cases
+│   └── *.py
+│
+├── __init__.py
+├── alembic.ini              # Alembic global config
+├── database.py              # Database connection & session
+├── main.py                  # Application entry point
+└── models.py                # ORM models
+```
+
+#### Overall Layered Architecture
+
+This project follows a typical **FastAPI + SQLAlchemy + Alembic** layered design.
+
+```
+┌────────────────────┐
+│    API Layer       │   → routers/
+│ (Request Handling) │
+└────────────────────┘
+           ↓
+┌────────────────────┐
+│   Model Layer      │   → models.py
+│ (ORM Mapping)      │
+└────────────────────┘
+           ↓
+┌────────────────────┐
+│ Database Layer     │   → database.py + alembic/
+│ (Persistence)      │
+└────────────────────┘
+
+```
+
+#### Runtime Request Flow
+
+Example: Client sends request to create a todo.
+
+```
+Client
+   ↓
+main.py (FastAPI App)
+   ↓
+routers/todos.py
+   ↓
+models.py (ORM)
+   ↓
+database.py (Session)
+   ↓
+Database
+```
+
+#### Source Code
+
+###### Application Entry (main.py)
+
+Main responsibilities:
+
+- Create FastAPI instance
+- Register routers
+- Start server
+
+```python
+from fastapi import FastAPI
+import models
+from database import engine
+from routers import auth, todos, admin, users
+
+# Create the FastAPI application instance
+# This is the entry point of the entire project
+app = FastAPI()
+
+# Create database tables based on ORM models
+# If the tables already exist, this will do nothing
+models.Base.metadata.create_all(bind=engine)
+
+app.include_router(auth.router)     # Register authentication-related routes
+app.include_router(todos.router)    # Register todo-related routes
+app.include_router(admin.router)    # Register admin-related routes
+app.include_router(users.router)
+```
+
+###### API Layer (routers/)
+
+Main responsibilities:
+
+- Receive HTTP requests
+- Validate parameters
+- Call database/business logic
+- Return responses
+
+| File     | Responsibility       |
+| -------- | -------------------- |
+| auth.py  | Authentication / JWT |
+| users.py | User management      |
+| todos.py | Todo CRUD            |
+| admin.py | Admin features       |
+
+`auth.py`
+
+```python
+from datetime import timedelta, datetime, timezone
+from typing import Annotated
+from fastapi import APIRouter, Depends, HTTPException
+from pydantic import BaseModel
+from sqlalchemy.orm import Session
+from starlette import status
+from database import SessionLocal
+from models import Users
+from passlib.context import CryptContext
+from fastapi.security import OAuth2PasswordRequestForm, OAuth2PasswordBearer
+from jose import jwt, JWTError
+
+# Create a router instance for grouping related endpoints
+router = APIRouter(
+    prefix="/auth",
+    tags=['auth']
+)
+
+SECRET_KEY = os.getenv("SECRET_KEY")
+ALGORITHM = 'HS256'
+
+# Create a password hashing context using bcrypt algorithm
+# This is used to securely hash and verify passwords
+bcrypt_context = CryptContext(schemes=['bcrypt'], deprecated='auto')
+
+oauth2_bearer = OAuth2PasswordBearer(tokenUrl='auth/token')
+
+
+class CreateUserRequest(BaseModel):
+    user_name: str
+    email: str
+    first_name: str
+    last_name: str
+    password: str
+    role: str
+    phone_number: str
+
+class Token(BaseModel):
+    access_token: str
+    token_type: str
+
+
+def get_db():
+    db = SessionLocal()
+
+    try:
+        yield db        # Give the session to FastAPI
+    finally:
+        db.close()      # Always close the session after request ends
+
+
+# Create a reusable database dependency type
+db_dependency = Annotated[Session, Depends(get_db)]
+
+def authenticate_user(username:str, password:str, db):
+    user = db.query(Users).filter(Users.username == username).first()
+    if not user:
+        return False
+    if not bcrypt_context.verify(password, user.hashed_password):
+        return False
+    return user
+
+def create_access_token(username: str, user_id: str, role: str, expires_delta: timedelta):
+    # Create JWT payload (user identity information)
+    encode = {
+        "sub": username,   # Subject (usually the username)
+        "id": user_id,      # User ID
+        "role": role
+    }
+
+    # Calculate token expiration time (UTC)
+    expired = datetime.now(timezone.utc) + expires_delta
+
+    # Add expiration time to payload
+    encode.update({"exp": expired})
+
+    # Encode and sign the JWT using secret key and algorithm
+    return jwt.encode(encode, SECRET_KEY, algorithm=ALGORITHM)
+
+# Dependency function to get the currently logged-in user
+# It verifies the JWT and extracts user information
+async def get_current_user(
+    token: Annotated[str, Depends(oauth2_bearer)]  # Get token from Authorization header
+):
+
+    try:
+        # Decode and verify the JWT using secret key and algorithm
+        payload = jwt.decode(token, SECRET_KEY, ALGORITHM)
+
+        # Extract user information from token payload
+        username: str = payload.get("sub")   # Subject (username)
+        user_id: int = payload.get("id")     # User ID
+        user_role: str = payload.get("role")
+
+        # If required fields are missing, authentication fails
+        if username is None or user_id is None:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Could not validate user."
+            )
+
+        # Return user info (can be used in protected endpoints)
+        return {
+            "username": username,
+            "id": user_id,
+            "user_role": user_role
+        }
+
+
+    # If token is invalid, expired, or tampered with
+    except JWTError:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Could not validate user."
+        )
+
+
+
+# Authentication-related endpoint
+# This route will be registered in main.py using include_router()
+@router.post("/", status_code=status.HTTP_201_CREATED)
+async def create_user(db: db_dependency,
+                      create_user_request: CreateUserRequest):
+    # We can not use **CreateUserRequest.model_dump()
+    # Because the password and hashed_password do not match
+    # and need further processing
+    create_user_model = Users(
+        email = create_user_request.email,
+        username = create_user_request.user_name,
+        first_name = create_user_request.first_name,
+        last_name = create_user_request.last_name,
+        role = create_user_request.role,
+        hashed_password = bcrypt_context.hash(create_user_request.password),
+        is_active = True,
+        phone_number = create_user_request.phone_number
+    )
+
+    db.add(create_user_model)
+    db.commit()
+
+
+# Login endpoint that returns a JWT access token
+@router.post("/token", response_model=Token)
+async def login_for_access_token(form_data: Annotated[OAuth2PasswordRequestForm, Depends()], db: db_dependency):
+    # Authenticate user using username and password
+    user = authenticate_user(form_data.username, form_data.password, db)
+
+    # If authentication fails, return 401
+    if not user:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid username or password")
+
+    # Generate JWT access token (valid for 20 minutes)
+    token = create_access_token(user.username, user.id, user.role, timedelta(minutes=20))
+
+    # Return token in standard OAuth2 format
+    return {"access_token": token, "token_type": "bearer"}
+```
+
+`users.py`
+
+```python
+from typing import Annotated
+from fastapi import APIRouter, Depends, HTTPException, Path
+from pydantic import BaseModel, Field
+from sqlalchemy.orm import Session
+from starlette import status
+from database import SessionLocal
+from models import Users
+from passlib.context import CryptContext
+
+
+from .auth import get_current_user
+
+# Create a router instance for grouping related endpoints
+router = APIRouter(
+    prefix="/user",
+    tags=['user']
+)
+
+def get_db():
+    db = SessionLocal()
+
+    try:
+        yield db        # Give the session to FastAPI
+    finally:
+        db.close()      # Always close the session after request ends
+
+
+class UserVerfification(BaseModel):
+    password: str
+    new_password: str = Field(min_length=6)
+
+# Create a reusable database dependency type
+db_dependency = Annotated[Session, Depends(get_db)]
+user_dependency = Annotated[dict, Depends(get_current_user)]
+# Create a password hashing context using bcrypt algorithm
+# This is used to securely hash and verify passwords
+bcrypt_context = CryptContext(schemes=['bcrypt'], deprecated='auto')
+
+
+@router.get("/", status_code=status.HTTP_200_OK)
+async def get_user(user: user_dependency, db: db_dependency):
+    if user is None:
+        raise HTTPException(status_code=401, detail='Authentication failed')
+    user_model = db.query(Users).filter(Users.id == user.get("id")).first()
+    if user_model is None:
+        raise HTTPException(status_code=404, detail='User not found')
+    return user_model
+
+@router.put("/password", status_code=status.HTTP_204_NO_CONTENT)
+async def change_password(user: user_dependency, db: db_dependency, user_verification : UserVerfification):
+    if user is None:
+        raise HTTPException(status_code=401, detail='Authentication failed')
+    user_model = db.query(Users).filter(Users.id == user.get('id')).first()
+    if not bcrypt_context.verify(user_verification.password, user_model.hashed_password):
+        raise HTTPException(status_code=401, detail='Error on password')
+    user_model.hashed_password = bcrypt_context.hash(user_verification.new_password)
+    db.add(user_model)
+    db.commit()
+
+# Maybe using request body is better?
+@router.put("/phonenumber/{phone_number}", status_code=status.HTTP_204_NO_CONTENT)
+async def change_phone_number(user:user_dependency, db:db_dependency, phone_number: str):
+    if user is None:
+        raise HTTPException(status_code=401, detail='Authentication Failed')
+    user_model = db.query(Users).filter(Users.id == user.get('id')).first()
+    user_model.phone_number = phone_number
+    db.add(user_model)
+    db.commit()
+```
+
+`todos.py`
+
+```python
+from typing import Annotated
+
+from pydantic import BaseModel, Field
+from sqlalchemy.orm import Session
+from fastapi import Depends, HTTPException, Path, APIRouter
+from starlette import status
+
+from models import Todos
+from database import SessionLocal
+
+from .auth import get_current_user
+
+# Create a router instance for grouping related endpoints
+router = APIRouter()
+
+
+# Database dependency function
+# Provides a database session for each request
+def get_db():
+    # Create a new database session
+    db = SessionLocal()
+
+    try:
+        yield db        # Give the session to FastAPI
+    finally:
+        db.close()      # Always close the session after request ends
+
+
+# Create a reusable database dependency type
+# Session → expected type
+# Depends(get_db) → get session from get_db()
+db_dependency = Annotated[Session, Depends(get_db)]
+
+user_dependency = Annotated[dict, Depends(get_current_user)]
+
+# Request model for creating a new Todo
+# ID is not included because SQLite will generate it automatically
+class TodoRequst(BaseModel):
+    title: str = Field(min_length=3)
+    description: str = Field(min_length=3, max_length=100)
+    priority: int = Field(gt=0, lt=6)
+    complete: bool
+
+
+# Get all todos that belong to the current user
+# The user information is extracted from the JWT token
+@router.get("/", status_code=status.HTTP_200_OK)
+async def read_all(user: user_dependency, db: db_dependency):
+    if user is None:
+        raise HTTPException(status_code=401, detail='Authentication Failed')
+    # Query todos where owner_id matches the current user's ID
+    return db.query(Todos).filter(Todos.owner_id == user.get('id')).all()
+
+
+# Inject database session: db_dependency
+# Path parameter (must be > 0): Path(gt=0)
+@router.get("/todo/{todo_id}", status_code=status.HTTP_200_OK)
+async def read_todo(user: user_dependency, db: db_dependency, todo_id: int = Path(gt=0)):
+    if user is None:
+        raise HTTPException(status_code=401, detail='Authentication Failed')
+
+    # Query the Todos table and find the record by ID
+    todo_model = db.query(Todos).filter(Todos.id == todo_id).filter(Todos.owner_id == user.get('id')).first()
+
+    # If the todo exists, return it
+    if todo_model is not None:
+        return todo_model
+
+    # If not found, return 404 error
+    raise HTTPException(status_code=404, detail="Todo not found.")
+
+
+@router.post("/todo", status_code=status.HTTP_201_CREATED)
+async def create_todo(user: user_dependency, db: db_dependency, todo_request: TodoRequst):
+    if user is None:
+        raise HTTPException(status_code=401, detail='Authentication Failed')
+
+    # Convert Pydantic model to ORM model
+    # Remember to add foreign key
+    todo_model = Todos(**todo_request.model_dump(), owner_id = user.get('id'))
+
+    db.add(todo_model)          # Add the new record to the session
+    db.commit()                 # Save changes to the database
+
+
+@router.put("/todo/{todo_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def update_todo(user: user_dependency, db: db_dependency,todo_request: TodoRequst, todo_id: int = Path(gt=0)):
+    if user is None:
+        return HTTPException(status_code=401, detail='Authentication Failed')
+
+    # Find the todo item by ID
+    todo_model = db.query(Todos).filter(Todos.id == todo_id).filter(Todos.owner_id == user.get('id')).first()
+
+    # If not found, return 404 error
+    if todo_model is None:
+        raise HTTPException(status_code=404, detail="Todo not found.")
+
+    # Update fields on the existing ORM object
+    # This allows SQLAlchemy to track changes and perform an UPDATE
+    todo_model.title = todo_request.title
+    todo_model.description = todo_request.description
+    todo_model.priority = todo_request.priority
+    todo_model.complete = todo_request.complete
+
+    db.add(todo_model)              # Add updated object to session
+    db.commit()						# Save changes to the database
+
+@router.delete("/todo/{todo_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_todo(user: user_dependency, db: db_dependency, todo_id: int = Path(gt=0)):
+    if user is None:
+        raise HTTPException(status_code=401, detail='Authentication Failed')
+
+    todo_model = db.query(Todos).filter(Todos.id == todo_id).filter(Todos.owner_id == user.get('id')).first()
+
+    if todo_model is None:
+        raise HTTPException(status_code=404, detail="Todo not found")
+
+    db.delete(todo_model)           # Delete the record
+    db.commit()                     # Save changes to the database
+
+
+```
+
+`admin.py`
+
+```python
+from typing import Annotated
+
+from pydantic import BaseModel, Field
+from sqlalchemy.orm import Session
+from fastapi import Depends, HTTPException, Path, APIRouter
+from starlette import status
+
+from models import Todos
+from database import SessionLocal
+
+from .auth import get_current_user
+
+# Create a router instance for grouping related endpoints
+router = APIRouter(
+    prefix='/admin',
+    tags=['admin']
+)
+
+
+# Database dependency function
+# Provides a database session for each request
+def get_db():
+    # Create a new database session
+    db = SessionLocal()
+
+    try:
+        yield db        # Give the session to FastAPI
+    finally:
+        db.close()      # Always close the session after request ends
+
+
+# Create a reusable database dependency type
+# Session → expected type
+# Depends(get_db) → get session from get_db()
+db_dependency = Annotated[Session, Depends(get_db)]
+user_dependency = Annotated[dict, Depends(get_current_user)]
+
+@router.get("/todo", status_code=status.HTTP_200_OK)
+async def read_all(user: user_dependency, db: db_dependency):
+    if user is None or user.get("user_role") != "admin":
+        raise HTTPException(status_code=401, detail="Authentication Failed")
+    return db.query(Todos).all()
+
+@router.delete("/todo/{todo_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_todo(user:user_dependency, db: db_dependency, todo_id: int = Path(gt=0)):
+    if user is None or user.get('user_role') != "admin":
+        raise HTTPException(status_code=401, detail='Authentication Failed')
+    todo_model = db.query(Todos).filter(Todos.id == todo_id).first()
+    if todo_model is None:
+        raise HTTPException(status_code=404, detail='Todo not found')
+    db.delete(todo_model)
+    db.commit()
+```
+
+###### Database Layer (database.py)
+
+Main responsibilities:
+
+- Create engine
+- Manage sessions
+- Handle connections
+
+```python
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker, declarative_base
+# from sqlalchemy.ext.declarative import declarative_base  # Old import (SQLAlchemy v1)
+
+
+# Database connection URL (connects to a local SQLite file)
+# SQLALCHEMY_DATABASE_URL = "sqlite:///./todosapp.db"
+
+# Database connection URL for PostgreSQL
+# Format: postgresql://<username>:<password>@<host>/<database_name>
+# This connects the application to the local PostgreSQL database
+SQLALCHEMY_DATABASE_URL = "postgresql://xxx:xxxx@localhost/TodoApplicationDatabase"
+
+# Create database engine (responsible for connecting to the database)
+# SQLite requires check_same_thread=False for FastAPI (multi-thread support)
+# engine = create_engine(
+#     SQLALCHEMY_DATABASE_URL,
+#     connect_args={"check_same_thread": False}
+# )
+
+# PostgreSQL (or other production databases) engine configuration
+# No special thread configuration is required
+engine = create_engine(SQLALCHEMY_DATABASE_URL)
+
+
+# Create a database session factory
+# SessionLocal is used to create database sessions
+# Sessions are used to query, insert, update, and delete data
+SessionLocal = sessionmaker(
+    autocommit=False,   # Do not save changes automatically
+    autoflush=False,    # Do not send changes to DB automatically
+    bind=engine         # Bind sessions to this engine
+)
+
+
+# Base class for all ORM models
+# All database models must inherit from this class
+# Used to collect table metadata for table creation
+Base = declarative_base()
+```
+
+###### Migration Layer (alembic/)
+
+| Component      | Purpose               |
+| -------------- | --------------------- |
+| versions/      | History of migrations |
+| env.py         | Migration runtime     |
+| script.py.mako | Template              |
+
+###### Test Layer (test/)
+
+Responsibilities:
+
+- Unit tests
+- API tests
+- Regression tests
 
 ## Section 14: Project 4 - Unit & Integration Test
 
