@@ -1632,35 +1632,39 @@ Note: `Base.metadata.create_all(bind=engine)` will not enhance our DB if it alre
 
 ###### Depends and Annotated in FastAPI
 
-Depends → Injects values
+Core Concepts
 
-Annotated → Adds metadata
+- Depends → Injects values
+
+- Annotated → Adds metadata
 
 `Depends`
 
-- Used for dependency injection
-- Tells FastAPI how to get a parameter value
-- **Automatically** calls the dependency function
-
-```python
-# Example
-Depends(get_db)
-```
+- **Purpose**: Handles Dependency Injection (DI).
+- **Mechanism**: Tells FastAPI to execute a function/callable _before_ the route logic.
+- **Chainable**: A dependency can depend on another dependency (creating a dependency tree).
 
 `Annotated`
 
-- Used to attach extra **metadata** to a type
-- Format: Annotated[Type, Extra]
+- **Standard Python**: Introduced in Python 3.9 (`typing.Annotated`).
+- **The Mix**: `Annotated[Type, Metadata]`
+- **FastAPI Usage**: `Annotated[DataType, Depends(logic_function)]`
+
+Example:
 
 ```python
-# Example:
-# Parameter type: Session
-# Parameter source: get_db()
-Annotated[Session, Depends(get_db)]
-# FastAPI will:
-# 1. Call get_db()
-# 2. Get the returned/yielded value
-# 3. Inject it into the endpoint
+# --- Dependency Declaration ---
+
+# Parameter type:   Session (The object used in the function)
+# Parameter source: get_db() (The logic that provides the object)
+# Annotated:        Merges the 'Type' with the 'Dependency Logic'
+DB_Session = Annotated[Session, Depends(get_db)]
+# --- Behind the Scenes (How FastAPI handles it) ---
+
+# When an endpoint uses 'db: DB_Session', FastAPI will:
+# 1. Resolve: Execution triggers the 'get_db' callable.
+# 2. Extract: Capture the yielded/returned value from 'get_db'.
+# 3. Inject:  Assign that value to the 'db' variable before entering the route.
 ```
 
 ###### main.py
@@ -1693,16 +1697,13 @@ models.Base.metadata.create_all(bind=engine)
 # Database dependency function
 # Provides a database session for each request
 def get_db():
-
-    # Create a new database session
+    # 1. SETUP: Code before 'yield' runs BEFORE the request starts.
     db = SessionLocal()
-
     try:
-        # Give the session to FastAPI
-        yield db
-
+        yield db  # 2. INJECT: This value is passed to the endpoint.
     finally:
-        # Always close the session after request ends
+        # 3. TEARDOWN: Code after 'yield' runs AFTER the response is sent.
+        # This happens even if the endpoint raised an error.
         db.close()
 
 
@@ -4069,6 +4070,48 @@ SessionLocal = sessionmaker(
 # All database models must inherit from this class
 # Used to collect table metadata for table creation
 Base = declarative_base()
+```
+
+###### Model Layer (models.py)
+
+Defines ORM mappings between Python objects and database tables.
+
+Main responsibilities:
+
+- Define table structure
+- Maintain relationships
+- Provide ORM abstraction
+
+```python
+from database import Base
+from sqlalchemy import Column, ForeignKey, Integer, String, Boolean
+
+
+# ORM model for the "users" table (one class = one table)
+class Users(Base):
+    __tablename__ = "users"                              # Table name in database
+
+    id = Column(Integer, primary_key=True, index=True)    # Unique user ID (primary key)
+    email = Column(String, unique=True)                   # User email (must be unique)
+    username = Column(String, unique=True)                # Username (must be unique)
+    first_name = Column(String)                           # User first name
+    last_name = Column(String)                            # User last name
+    hashed_password = Column(String)                      # Encrypted password (never store plain text)
+    is_active = Column(Boolean, default=True)             # Account status (active / disabled)
+    role = Column(String)                                 # User role (e.g., admin, user)
+    phone_number = Column(String)
+
+
+# ORM model for the "todos" table (one class = one table)
+class Todos(Base):
+    __tablename__ = "todos"                               # Table name in database
+
+    id = Column(Integer, primary_key=True, index=True)    # Unique todo ID (primary key)
+    title = Column(String)                                # Todo title
+    description = Column(String)                          # Todo description
+    priority = Column(Integer)                            # Priority level (1 = low, 5 = high)
+    complete = Column(Boolean, default=False)             # Completion status (0 = False, 1 = True)
+    owner_id = Column(Integer, ForeignKey("users.id"))    # Link to users.id (foreign key)
 ```
 
 ###### Migration Layer (alembic/)
