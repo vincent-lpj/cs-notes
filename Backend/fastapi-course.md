@@ -4468,3 +4468,331 @@ Jinja tags allows developers to be confident while working with backend data, us
        href="{{ url_for('static', path='/css/base.css') }}"
      />
      ```
+
+#### 187. FastAPI Full Stack - CSS & JS
+
+This course will use [Bootstrap](https://getbootstrap.com/) for CSS and JS.
+
+#### 188. FastAPI Full Stack - Login Page
+
+1. Creat `login.html` in `templates` folder
+
+2. Link `base.css` and `bootstrap.css` in login page
+
+   ```html
+   <link
+     rel="stylesheet"
+     type="text/css"
+     href="{{ url_for('static', path='/css/base.css') }}"
+   />
+   <link
+     rel="stylesheet"
+     type="text/css"
+     href="{{ url_for('static', path='/css/bootstrap.css') }}"
+   />
+   ```
+
+3. Create components in html body
+
+   ```html
+   <body>
+     <div class="container">
+       <div class="card">
+         <div class="card-header">
+           <div class="card-body">
+             <form id="loginForm">
+               <div class="from-group">
+                 <label>Username</label>
+                 <input
+                   type="text"
+                   class="form-control"
+                   name="username"
+                   autocomplete="username"
+                   required
+                 />
+               </div>
+               <div class="form-group">
+                 <label>Password</label>
+                 <input
+                   type="password"
+                   class="form-control"
+                   name="password"
+                   autocomplete="current-password"
+                 />
+               </div>
+               <button type="submit" class="btn btn-primary">Login</button>
+             </form>
+           </div>
+           <div class="card-footer text-muted">
+             <a href="/auth/register-page">Register?</a>
+           </div>
+         </div>
+       </div>
+     </div>
+   </body>
+   ```
+
+4. Define `render_login_page` in `auth.py`
+
+   ```python
+   from fastapi import Request
+   from fastapi.templating import Jinja2Templates
+
+   templates = Jinja2Templates(directory="templates")
+
+   ### Pages ###
+   @router.get("/login-page")
+   def render_login_page(request: Request):
+       return templates.TemplateResponse("login.html", {"request": request})
+   ```
+
+#### 189. FastAPI Full Stack - Register Page
+
+Follow similar steps as log-in page, we can now build our register page.
+
+###### Notes
+
+Now, because of the lack of JS, none of the log-in page and register page works.
+
+#### 190. FastAPI Full Stack - Layout Page (Inheritance)
+
+Jinja allows us to easily be able to **reuse** a lot of the same things that we're going to need inside each of our HTML file.
+
+1. Create a `layout.html` in `templates` folder
+
+   `  {% block content %}  {% endblock %}` is the key.
+
+   ```html
+   <!doctype html>
+   <html lang="en">
+     <head>
+       <meta charset="UTF-8" />
+       <link
+         rel="stylesheet"
+         type="text/css"
+         href="{{ url_for('static', path='/css/base.css') }}"
+       />
+       <link
+         rel="stylesheet"
+         type="text/css"
+         href="{{ url_for('static', path='/css/bootstrap.css') }}"
+       />
+       <title>TodoApp</title>
+     </head>
+     <body>
+       {% block content %} {% endblock %}
+     </body>
+   </html>
+   ```
+
+2. Delete contents in `body` of `login.html` and `register.html`, place `{% include 'layout.html' %}` in the head instead.
+
+#### 191. FastAPI Full Stack - JS Implementation
+
+1. Link JS files to `layout.html`
+
+   ```html
+   <script src="{{ url_for('static', path='/js/jquery-slim.js') }}"></script>
+   <script src="{{ url_for('static', path='/js/popper.js') }}"></script>
+   <script src="{{ url_for('static', path='/js/bootstrap.js') }}"></script>
+   <script src="{{ url_for('static', path='/js/base.js') }}" defer></script>
+   ```
+
+#### 192. FastAPI Full Stack - Add Todo Page
+
+1. Create xx in `todos.py`
+
+2. Create `todo.html` in `templates`
+
+   ```html
+   {% include 'layout.html' %}
+   <div class="container">
+     <div class="card text-center">
+       <div class="card-header">Your Todo's</div>
+       <div class="card-body">
+         <h5 class="card-title">List of your todo's!</h5>
+         <p class="card-text">
+           Information regarding stuff that needs to be complete
+         </p>
+         <table class="table table-hover">
+           <thead>
+             <tr>
+               <th scope="col">#</th>
+               <th scope="col">Info</th>
+               <th scope="col">Actions</th>
+             </tr>
+           </thead>
+           <tbody>
+             {% for todo in todos %} {% if todo.complete == False %}
+             <tr class="pointer">
+               <td>{{loop.index}}</td>
+               <td>{{todo.title}}</td>
+               <td>
+                 <button
+                   onclick="window.location.href='edit-todo-page/{{todo.id}}'"
+                   type="button"
+                   class="btn btn-info"
+                 >
+                   Edit
+                 </button>
+               </td>
+             </tr>
+             {% else %}
+             <tr class="pointer alert alert-success">
+               <td>{{loop.index}}</td>
+               <td class="strike-through-td">{{todo.title}}</td>
+               <td>
+                 <button
+                   onclick="window.location.href='edit-todo-page/{{todo.id}}'"
+                   type="button"
+                   class="btn btn-info"
+                 >
+                   Edit
+                 </button>
+               </td>
+             </tr>
+             {% endif %} {% endfor %}
+           </tbody>
+         </table>
+         <a href="add-todo-page" class="btn btn-primary">Add a new todo!</a>
+       </div>
+     </div>
+   </div>
+   ```
+
+3. Now, we can use Web UI to list todos for a specifc user
+
+###### Note
+
+Note now we can manually delete cookies in the broswer: `Inspect` -> `Application` -> `Cookies`
+
+We will add a log out button to delete cookie, in the next section.
+
+#### 193. FastAPI Full Stack -Navigation Bar
+
+In this section, we will create a navigation bar, that is set at the very top of our web page.
+
+1. Create `navbar.html` in `templates`
+
+   ```html
+   <div>
+     <nav class="navbar navbar-expand-md navbar-dark main-color fixed-top">
+       <a class="navbar-brand" href="#">Todo App</a>
+       <button
+         class="navbar-toggler"
+         type="button"
+         data-toggle="collapse"
+         data-target="#navbarNav"
+         aria-controls="navbarNav"
+         aria-expanded="false"
+         aria-label="Toggle navigation"
+       >
+         <span class="navbar-toggler-icon"></span>
+       </button>
+       <div class="collapse navbar-collapse" id="navbarNav">
+         <ul class="navbar-nav">
+           {% if user %}
+           <li class="nav-item active">
+             <a class="nav-link" href="/todos/todo-page">Home</a>
+           </li>
+           {% endif %}
+         </ul>
+         <ul class="navbar-nav ml-auto">
+           {% if user %}
+           <li class="nav-item m-1">
+             <a
+               type="button"
+               class="btn btn-outline text-white"
+               onclick="logout()"
+               >Logout</a
+             >
+           </li>
+           {% endif %}
+         </ul>
+       </div>
+     </nav>
+   </div>
+   ```
+
+2. Include `navbar.html` in `layout.html`
+
+   ```html
+   {% include 'navbar.html'%}
+   ```
+
+#### 194. FastAPI Full Stack - Add New Todo
+
+1. Create `add-todo.html`
+
+2. Add new page to `todos.py`
+
+   ```python
+   @router.get("/add-todo-page")
+   async def render_todo_page(request:Request):
+       try:
+           user = await get_current_user(request.cookies.get("access_token"))
+
+           if user is None:
+               return redirect_to_login()
+
+           return templates.TemplateResponse("add-todo.html", {"request": request, "user": user})
+
+       except:
+           return redirect_to_login()
+   ```
+
+#### 195. FastAPI Full Stack -Edit Todo
+
+1. Create `edit-todo.html` in `templates`
+
+2. Create `.prettierignore`
+
+   ```
+   templates/edit-todo.html
+   ```
+
+3. Add new page to `todos.py`
+
+   ```python
+   @router.get("/edit-todo-page/{todo_id}")
+   async def render_edit_todo_page(request: Request, todo_id: int, db: db_dependency):
+       try:
+           user = await get_current_user(request.cookies.get("access_token"))
+
+           if user is None:
+               return redirect_to_login()
+
+           todo = db.query(Todos).filter(Todos.id == todo_id).first()
+
+           return templates.TemplateResponse("edit-todo.html", {"request": request, "todo": todo, "user": user})
+
+       except Exception as e:
+           return redirect_to_login()
+   ```
+
+#### 196. FastAPI Full Stack - Delete Todo
+
+1. Create a new button in `edit-todo.html`, right under `Edit your todo`
+
+   ```html
+   <button id="deleteButton" type="button" class="btn btn-danger">
+     Delete
+   </button>
+   ```
+
+2. Reload `uvicorn`, this should be working
+
+#### 197. FastAPI Full Stack - Home Page Redirection
+
+1. Delete jinja related items in `main.py`
+
+2. Import `status` and `RedirectResponse`
+
+3. Redirect user when accessing `localhost:8000`
+
+   ```python
+   # Register a GET route for the home page ("/")
+   @app.get("/")
+   def redirect_to_todos():
+       return RedirectResponse(url="/todos/todo-page", status_code=status.HTTP_302_FOUND)
+   ```
