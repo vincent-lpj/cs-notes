@@ -4,6 +4,8 @@
 
 [AsyncIO-Animations](https://github.com/CoreyMSchafer/AsyncIO-Animations)
 
+[AsyncIO-Code-Examples](https://github.com/CoreyMSchafer/AsyncIO-Code-Examples)
+
 #### Terminology Explained
 
 `asyncio` is a Python library for writing concurrent code using `async await` syntax.
@@ -145,11 +147,15 @@ This example demonstrates cooperative concurrency using Python’s `asyncio` eve
 
 Key Concepts
 
-- `await` will suspend `main` function, to make sure always print `Task 1` before printing `Task 2`
-  - `await` will tell the program what we are expecting for
-  - `main` will only be awakened when it get the value expected in `await`
-- However, instead of waiting idly, task 2 will be executed in event loop at the same time.
-  - So, you will see `Do someting with 2` right after `Do someting with 1`
+- `await` will suspend the `main` function, allowing the event loop to switch to other tasks before continuing.
+  - `await` tells the program that it is waiting for an awaitable object (such as a coroutine, Task, or Future) to complete.
+  - `main` will be **ONLY** resumed only when the awaited object finishes and returns a result.
+    - So, `Task 1` is always printed before printing `Task 2`
+  - The core concept of `await` is to **hand over control** to the event loop and allow other functions to run.
+    - The code below `await` will **NOT execute** until the awaited operation is completed.
+- However, instead of waiting idly, Task 2 will be scheduled and executed by the event loop during this waiting period.
+  - As a result, you may see `Do something with 2` appear shortly after `Do something with 1`
+  - even though `main` is still waiting.
 
 ```python
 import asyncio
@@ -255,3 +261,128 @@ Task 1 fully completed
 ['Result of 1', 'Result of 2']
 Finished in 2.00 seconds
 ```
+
+#### Example 5:
+
+Note:
+
+- Do not insert any **sychronous** code (like `time.sleep()`) in a asynchronous function
+- It will block the event loop and do not hand over control to others while waiting
+- So, in the following code
+  - Execution time will be 3 seconds
+  - `fetch_data` will be processed sequentially
+
+```python
+import asyncio
+import time
+
+async def fetch_data(param):
+    print(f"Do something with {param}...")
+    time.sleep(param)
+    print(f"Done with {param}")
+    return f"Result of {param}"
+
+async def main():
+    task1 = asyncio.create_task(fetch_data(1))
+    task2 = asyncio.create_task(fetch_data(2))
+
+    result1 = await task1
+    print("Task 1 fully completed")
+    result2 = await task2
+    print("Task 2 fully completed")
+    return [result1, result2]
+
+t1 = time.perf_counter()
+
+results = asyncio.run(main())
+print(results)
+
+t2 = time.perf_counter()
+print(f"Finished in {t2 - t1:.2f} seconds")
+```
+
+###### Output
+
+```
+Do something with 1...
+Done with 1
+Do something with 2...
+Done with 2
+Task 1 fully completed
+Task 2 fully completed
+['Result of 1', 'Result of 2']
+Finished in 3.01 seconds
+```
+
+#### Example 6: Skipped
+
+#### Example 7:
+
+In this example, we can see another way in which we can **schedule** and **await** tasks.
+
+So far, we have been creating tasks and manage them **manually**.
+
+Instead, we can also use the following approaches to handle asynchronous functions automatically:
+
+- `asyncio.gather`
+  - Use it when you do not mind some of them fail
+- `asyncio.TaskGroup`
+  - Use it when you want all task fail together or success together
+
+```python
+import asyncio
+import time
+
+async def fetch_data(param):
+    await asyncio.sleep(param)
+    return f"Result of {param}"
+
+async def main():
+    # Create Tasks Manually
+    task1 = asyncio.create_task(fetch_data(1))
+    task2 = asyncio.create_task(fetch_data(2))
+    result1 = await task1
+    result2 = await task2
+    print(f"Task 1 and 2 awaited results: {[result1, result2]}")
+
+    # Gather Coroutines
+    coroutines = [fetch_data(i) for i in range(1, 3)]
+    results = await asyncio.gather(*coroutines, return_exceptions=True)
+    print(f"Coroutine Results: {results}")
+
+    # Gather Tasks
+    tasks = [asyncio.create_task(fetch_data(i)) for i in range(1, 3)]
+    results = await asyncio.gather(*tasks)
+    print(f"Task Results: {results}")
+
+    # Task Group
+    # Here, we first see context manager in asynchronous format
+    async with asyncio.TaskGroup() as tg:
+        results = [tg.create_task(fetch_data(i)) for i in range(1, 3)]
+        # All tasks are awaited when the context manager exits.
+    print(f"Task Group Results: {[result.result() for result in results]}")
+
+    return "Main Coroutine Done"
+
+
+t1 = time.perf_counter()
+
+results = asyncio.run(main())
+print(results)
+
+t2 = time.perf_counter()
+print(f"Finished in {t2 - t1:.2f} seconds")
+```
+
+###### Output
+
+```
+Task 1 and 2 awaited results: ['Result of 1', 'Result of 2']
+Coroutine Results: ['Result of 1', 'Result of 2']
+Task Results: ['Result of 1', 'Result of 2']
+Task Group Results: ['Result of 1', 'Result of 2']
+Main Coroutine Done
+Finished in 8.01 seconds
+```
+
+####
