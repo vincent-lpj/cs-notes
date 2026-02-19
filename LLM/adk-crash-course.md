@@ -4,6 +4,10 @@ Agent Development Kit (ADK)
 
 [Agent Development Kit (ADK) Masterclass: Build AI Agents & Automate Workflows (Beginner to Pro)](https://www.youtube.com/watch?v=P4VFL9nIaIA&list=PLQdhkr4teZUodsAhEJ2j0tTMsZOefjam4)
 
+[MCP + Agent Development Kit (ADK): Crash Course](https://www.youtube.com/watch?v=HkzOrj2qeXI)
+
+[Agent2Agent (A2A) Crash Course: Full Walkthrough With Real Multi-Agent Examples](https://www.youtube.com/watch?v=mFkw3p5qSuA)
+
 [GitHub Repo](https://github.com/bhancockio/agent-development-kit-crash-course)
 
 12 different examples to walk through in this course.
@@ -359,6 +363,7 @@ So far, `adk web` handles sessions, state, and runners for us.
   - InMemorySessionService
   - DatabaseSessionService
   - VertexAISessionService
+- `session`, `state` and `memory` are different concepts
 
 Runner: the engine
 
@@ -515,7 +520,7 @@ python basic_stateful_session.py
 #         Loves it when people like and subscribe to his YouTube channel.
 ```
 
-#### 6. Persistent Storage
+#### 6. Persistent Storage (skipped)
 
 Allow agent to save data to database, so it can remember after rebooting.
 
@@ -525,15 +530,121 @@ Allow agent to save data to database, so it can remember after rebooting.
 
 #### 7. Multi-Agent
 
+[Multi-Agent Systems in ADK](https://google.github.io/adk-docs/agents/multi-agents/)
+
 Agents working together as a multi-agent solution.
 
-#### 8. Stateful Multi-Agent
+###### Multi-Agent Core Concept
+
+Root Agent: delegating work to other agents.
+
+- will examine sub-agents' **description** to decide which one is best suited to answer users' queries
+- will delegate work to the most suitable agent
+  - Unlike other framework, ADK will not (in basic architecture) let sub-agents collaborate and generate answers together
+  - instead, root agent will always delegate task to a **single** specific agent
+  - This flow can be changed by workflows, etc.
+
+###### Interaction & Communication Mechanisms
+
+Agent within a system often need to exchange data or trigger actions in one another.
+
+[ADK](https://google.github.io/adk-docs/agents/multi-agents/#interaction-communication-mechanisms) facilitates this through:
+
+1. Shared Session State
+2. LLM-Driven Delegation (Agent Transfer)
+3. Explicit Invocation (`AgentTool`)
+
+###### Multi-Agent Code Overview
+
+`Architechture`
+
+```
+parent_folder/
+└── manager/           # Main agent package (e.g., "manager")
+    ├── __init__.py              # Must import agent.py
+    ├── agent.py                 # Must define root_agent
+    ├── .env                     # Environment variables
+    └── tools/              		 # Directory for all tools
+		│   └── tools.py             # Tools definition
+    └── sub_agents/              # Directory for all sub-agents
+        ├── __init__.py          # Empty or imports sub-agents
+        ├── funny_nerd/          # Sub-agent package
+        │   ├── __init__.py      # Must import agent.py
+        │   └── agent.py         # Must define an agent variable
+        ├── news_agent/
+        │   ├── __init__.py
+        │   └── agent.py
+        └── stock_agent/
+            ├── __init__.py
+            └── agent.py
+```
+
+`agent.py`
+
+```python
+from google.adk.agents import Agent
+from google.adk.tools.agent_tool import AgentTool
+
+
+root_agent = Agent(
+    name="manager",
+    model="gemini-2.5-flash",
+    description="manager agent",
+    instruction="""
+    You are a manager agent that is responsible for overseeing the work of the other agents.
+
+    Always delegate the task to the appropriate agent. Use your best judgement to determine which agent to delegate to.
+
+    You are responsible for delegating tasks to the following agents:
+    - stock_analyst
+    - funny_nerd
+
+    You also have access to the following tools:
+    - news_analyst
+    - get_current_time
+    """,
+    sub_agents=[stock_analyst, funny_nerd],
+    tools = [
+        AgentTool(news_analyst),
+        get_current_time
+    ]
+)
+```
+
+#### 8. Stateful Multi-Agent (skipped)
 
 Sharing sessions in multi-agent solution.
 
+###### Stateful Multi-Agent Core Concept
+
+###### Stateful Multi-Agent Code Review
+
+###### Stateful Multi-Agent Demo
+
 #### 9. Callbacks
 
-Callbacks allow you to control every part of agent cycle.
+[Callbacks](https://google.github.io/adk-docs/callbacks/) allow you to control every part of agent cycle.
+
+###### Types of Callbacks
+
+1. Agent Lifecycle Callbacks
+   - Before Agent Callback
+     - Ideal for setting up resources or state needed only for this specific agents' run
+   - After Agent Callback
+     - Used for clean-up tasks, logging, etc.
+2. LLM Iteration Callbacks
+   - Before Model Callback
+   - After Model Callback
+3. Tool Execution Callbacks
+   - Before Tool Callback
+     - Inspect and modify tool arguments
+   - After Tool Callback
+     - Inspect, modify, and log tool results
+     - Save results to state
+
+###### Review Code & Demos for Each Callback Example
+
+`CallbackContext` is needed.
 
 #### 10. Sequential Agent
 
