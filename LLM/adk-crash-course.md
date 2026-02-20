@@ -4,11 +4,13 @@ Agent Development Kit (ADK)
 
 [Agent Development Kit (ADK) Masterclass: Build AI Agents & Automate Workflows (Beginner to Pro)](https://www.youtube.com/watch?v=P4VFL9nIaIA&list=PLQdhkr4teZUodsAhEJ2j0tTMsZOefjam4)
 
-[MCP + Agent Development Kit (ADK): Crash Course](https://www.youtube.com/watch?v=HkzOrj2qeXI)
+[MCP + Agent Development Kit (ADK): Crash Course](https://www.youtube.com/watch?v=HkzOrj2qeXI) [done]
 
 [Agent2Agent (A2A) Crash Course: Full Walkthrough With Real Multi-Agent Examples](https://www.youtube.com/watch?v=mFkw3p5qSuA)
 
 [GitHub Repo](https://github.com/bhancockio/agent-development-kit-crash-course)
+
+## ADK Masterclass
 
 12 different examples to walk through in this course.
 
@@ -655,3 +657,103 @@ Agents always work in a sequence.
 #### 11. Parallel Agent
 
 #### 12. Loop Agent
+
+## ADK + MCP
+
+MCP-Scan: [Official Website](https://invariantlabs.ai/blog/introducing-mcp-scan), [Repo](https://github.com/snyk/agent-scan)
+
+#### MCP Crash Course
+
+[Model Context Protocol](https://modelcontextprotocol.io/docs/getting-started/intro)
+
+[MCP Inspector](https://modelcontextprotocol.io/docs/tools/inspector)
+
+Example
+
+- Server Catelog: [MCP Servers](https://github.com/modelcontextprotocol/servers)
+- Notion: [Overview](https://developers.notion.com/guides/mcp/build-mcp-client), [GitHub Repo](https://github.com/makenotion/notion-mcp-server)
+-
+
+MCP is a standardized way for AI agent to connect to external tools and data.
+
+- Nothing more than a wrapper of common tools
+
+#### Connect to MCP
+
+###### Local MCP Server: Stdio Connection
+
+[Notion MCP Tool for ADK](https://google.github.io/adk-docs/integrations/notion/)
+
+`StdioConnectionParms`
+
+```python
+from google.adk.agents import Agent
+from google.adk.tools.mcp_tool import McpToolset
+from google.adk.tools.mcp_tool.mcp_session_manager import StdioConnectionParams
+from mcp import StdioServerParameters
+
+NOTION_TOKEN = "YOUR_NOTION_TOKEN"
+
+root_agent = Agent(
+    model="gemini-2.5-pro",
+    name="notion_agent",
+    instruction="Help users get information from Notion",
+    tools=[
+        McpToolset(
+            connection_params=StdioConnectionParams(
+                server_params = StdioServerParameters(
+                    command="npx",
+                    args=[
+                        "-y",
+                        "@notionhq/notion-mcp-server",
+                    ],
+                    env={
+                        "NOTION_TOKEN": NOTION_TOKEN,
+                    }
+                ),
+                timeout=30,
+            ),
+        )
+    ],
+)
+```
+
+###### Remote MCP Server: Streamable HTTP
+
+Remote MCP servers extend AI applications’ capabilities beyond your local environment, providing access to internet-hosted tools, services, and data sources.
+
+[GitHub MCP Tool for ADK](https://google.github.io/adk-docs/integrations/github/)
+
+`StreamableHTTPServerParams`
+
+```python
+from google.adk.agents import Agent
+from google.adk.tools.mcp_tool import McpToolset
+from google.adk.tools.mcp_tool.mcp_session_manager import StreamableHTTPServerParams
+
+GITHUB_TOKEN = "YOUR_GITHUB_TOKEN"
+
+root_agent = Agent(
+    model="gemini-2.5-pro",
+    name="github_agent",
+    instruction="Help users get information from GitHub",
+    tools=[
+        McpToolset(
+            connection_params=StreamableHTTPServerParams(
+                url="https://api.githubcopilot.com/mcp/",
+                headers={
+                    "Authorization": f"Bearer {GITHUB_TOKEN}",
+                    "X-MCP-Toolsets": "all",
+                    "X-MCP-Readonly": "true"
+                },
+            ),
+        )
+    ],
+)
+```
+
+###### Create Your Own Server
+
+[MCP Python SDK](https://github.com/modelcontextprotocol/python-sdk)
+
+[FaskMCP](https://gofastmcp.com/getting-started/welcome)
