@@ -12,11 +12,221 @@ Pydantic AI: [Documentation](https://ai.pydantic.dev/)
 
 ## Type Hint
 
+Notice that `type hinting` is totally different from `type checking`
+
+For Type Checking, see [Mypy](https://mypy-lang.org/)
+
+#### Type Hinting, Type Checking and Data Validation
+
+Python Tutorial: [Type Hinting vs Type Checking vs Data Validation - What’s the Difference?](https://www.youtube.com/watch?v=fM4O9bModsE)
+
+All of the three concepts are related with **types**, but they serve different purposes.
+
+- Type Hints tells us how we expect something to be.
+
+- Type Checking is **static analysis** that makes sure that we're sticking to our declared types.
+
+- Data Validation happens in **runtime** and make sure that data meet our requirements
+
+###### Type Hinting
+
+Type Hinting and Annotation are similar concepts with slight differences.
+
+Note that Python **ignores** type hints at runtime, it is just meta-data.
+
+- variables
+- function parameters
+- return values
+
+###### Type Checking
+
+`Type Checking` analyze your code before running to make sure that types you specfied are correct.
+
+It requires an **external** tool, here we use `Mypy Type Checker`, a VS Code extension.
+
+```python
+def create_user(name:str, age:int):
+    return {
+        "name": str,
+        "age": int
+    }
+
+user1 = create_user("John", "18")
+```
+
+`mypy` will check type of parameters and report to you like this:
+
+```
+Argument 2 to "create_user" has incompatible type "str"; expected "int"
+```
+
+However, type checkers only report type mismatches to us, but **NOT** prevent code running.
+
+We can still ignore the message above and run this code.
+
+Also, as a static check, mypy will not guard against dynamic data, such as APIs, user input, etc.
+
+###### Data Validation
+
+`Data Validation` is a runtime verification that make sure data meets specific requirements. It raises validation error to make sure you know what is going wrong.
+
+Manual Validation
+
+```python
+def create_user(name:str, age:int):
+    if not isinstance(age, int):
+        raise TypeError("Age should be an integer")
+    return {
+        "name": str,
+        "age": int
+    }
+
+user1 = create_user("John", "18")
+```
+
+```
+TypeError: Age should be an integer
+```
+
+Pydantic
+
+`Pydantic` uses type hinting to do data validation, it is great for **API payloads**, **config loading**, and such data coming from external sources.
+
+#### Type Hinting in Action
+
+Python Tutorial: [Type Hints - From Basic Annotations to Advanced Generics](https://www.youtube.com/watch?v=RwH2UzC2rIo&t=292s)
+
+Type Hints can be added to
+
+- variables
+
+  ```python
+  name: str = "John"
+  age: int = 38
+  ```
+
+- Function Parameter
+
+  ```python
+  def create_user(first_name:str, last_name: str, age:int):
+
+      return {
+          "first_name": first_name,
+          "last_name": last_name,
+          "age": age
+      }
+
+  user1 = create_user("John", "Doe", 18)
+  ```
+
+- Return Values
+
+  ```python
+  def create_user(first_name, last_name, age) -> dict:
+  # ...
+  ```
+
+###### Syntax
+
+- union
+
+  ```
+  age: int | None = None
+  ```
+
+- list
+
+  ```
+  list[int]
+  ```
+
+- dict
+
+  ```python
+  def create_user() -> dict[str, str | int | None]:
+  # ...
+  ```
+
+- Type Aliases: [documentation](https://typing.python.org/en/latest/spec/aliases.html)
+
+  ```python
+  Users = dict[str, str | int | None]
+
+  def create_user() -> Users:
+  # ...
+  ```
+
+###### User-Defined Type: NewType
+
+```python
+from typing import NewType
+
+RGB = NewType("RGB", tuple[int, int, int])
+
+User = dict[str, str | int | RGB | None]
+
+
+def create_user(first_name:str, last_name: str, age:int, fav_color: RGB | None = None) -> User:
+
+    return {
+        "first_name": first_name,
+        "last_name": last_name,
+        "age": age,
+        "fav_color": fav_color
+    }
+
+# user1 = create_user("John", "Doe", 18, (109, 123, 134))
+# RGB should be explictly identified here
+user2 = create_user("John", "Doe", 18, RGB((109, 123, 134)))
+```
+
+###### TypedDict
+
+```python
+from typing import TypedDict
+
+class User(TypedDict):
+    first_name: str
+    last_name: str
+    email: str
+    age: int | None
+    fav_color: RGB | None
+
+# User = dict[str, str | int | RGB | None]
+
+def create_user(first_name:str, last_name: str, age:int, fav_color: RGB | None = None) -> User:
+  # ...
+```
+
+Or we can achieve similar results using `dataclass`
+
+```python
+@dataclass
+class User():
+    first_name: str
+    last_name: str
+    age: int | None
+    fav_color: RGB | None
+
+
+def create_user(first_name:str, last_name: str, age:int, fav_color: RGB | None = None) -> User:
+
+    # Note that here we should return User class instead of a dictionary
+    return User(
+        first_name=first_name,
+        last_name=last_name,
+        age=age,
+        fav_color=fav_color
+    )
+```
+
 ## Data Class
 
 `dataclasses` aims at helping you write **data-oriented** classes.
 
 `dataclasses` - [Data Classes](https://docs.python.org/3/library/dataclasses.html)
+
+Tutorial: [This Is Why Python Data Classes Are Awesome](https://www.youtube.com/watch?v=CvQ7e6yUtnw&t=240s)
 
 #### Overview
 
@@ -212,6 +422,8 @@ user1.uid = "123"
 
 ## Pydantic
 
+Python Pydantic Tutorial: [Complete Data Validation Course (Used by FastAPI)](https://www.youtube.com/watch?v=M81pfi64eeM&t=1098s)
+
 Python's most famous data validation library. It's primary purpose is that data entering into our application need to meet certain expectations.
 
 Pydantic has been used in many libraries, for example, FastAPI uses it to validate API requests and responses
@@ -315,6 +527,8 @@ print(user)
 ```
 
 ## Pydantic AI
+
+Tutorial: [Build Production-Ready AI Agents in Python with Pydantic AI](https://www.youtube.com/watch?v=-WB0T0XmDrY&t=687s)
 
 Pydantic AI is an extension of Pydantic, and it helps you to build AI-powered agents.
 
