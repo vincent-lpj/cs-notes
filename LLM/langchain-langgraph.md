@@ -850,6 +850,164 @@ Note here graph returns `state` in the end.
 
 ## Section 6: LangGraph ReAct Agent
 
+#### Section Summary: Code
+
+###### Architecture
+
+```
+                  +-------------+
+                  |  __start__  |
+                  +-------------+
+                        |
+                        v
+                +----------------+
+                |       LLM      |
+                +----------------+
+                 |    |       |
+        (call tool)   |   	(finish)
+                 |    |       |
+                 v    |       v
+           +------------+     |
+           |    Tool    |     |
+           +------------+     |
+                              |
+                           		|
+                            	|
+                          		|
+                           		|
+                           		v
+                        +-------------+
+                        |   __end__   |
+                        +-------------+
+```
+
+###### Code
+
+```python
+import operator
+import requests
+from dotenv import load_dotenv
+from typing import TypedDict, Annotated
+
+from langchain_ollama import ChatOllama
+from langgraph.graph import StateGraph, START, END
+from langgraph.prebuilt import ToolNode
+from langchain_core.tools import tool
+from langchain_core.messages import SystemMessage, HumanMessage
+
+
+# Load environment variables from .env file, so that LangSmith tracing is enabled.
+load_dotenv()
+
+# Configuration for Ollama server and model
+BASE_URL = "http://localhost:11434"
+MODEL_NAME = "qwen3:8b"
+
+llm = ChatOllama(model=MODEL_NAME, base_url=BASE_URL)
+
+# Define the state schema for the agent. The state will keep track of the conversation messages.
+class AgentState(TypedDict):
+    messages: Annotated[list, operator.add]
+
+# Define a tool for getting weather information.
+@tool
+def get_weather(location: str) -> dict:
+    """Get current weather for a location.
+
+    Use for queries about weather, temperature, or conditions in any city.
+    Examples: "weather in Paris", "temperature in Tokyo", "is it raining in London"
+
+    Args:
+        location: City name (e.g., "New York", "London", "Tokyo")
+
+    Returns:
+        Current weather information including temperature and conditions.
+    """
+
+    # In a real implementation, you would call an actual weather API here.
+    # url = f"https://wttr.in/{location}?format=j1"
+    # response = requests.get(url=url, timeout=10)
+    # response.raise_for_status()
+    # data = response.json()
+
+    # hard-coding because wttr.in is down
+    weather_data = {
+        "location": location,
+        "weather": "rainy, but rain will stop in 2 hours."}
+
+    return weather_data
+
+
+# Define agent node
+def agent_node(state: AgentState):
+    # Bind tools to the LLM, so that it can call tools during generation.
+    llm_with_tools = llm.bind_tools(tools=[get_weather])
+
+    messages = state["messages"]
+    response = llm_with_tools.invoke(messages)
+
+    # AIMessages will contain tool_calls attributes during tool call turn
+    if hasattr(response, "tool_calls") and response.tool_calls:
+        for tc in response.tool_calls:
+            print(f"This agent called tool: {tc.get("name", "?")} with args: {tc.get("args", "?")}")
+    else:
+        print(f"[AGENT] generating responses...")
+
+    # The value of messages should be list, because of operator.add
+    return {"messages": [response]}
+
+
+# Define the routing function
+def should_continue(state:AgentState):
+    last_message = state["messages"][-1]
+
+    if hasattr(last_message, "tool_calls") and last_message.tool_calls:
+        return "tools"      # This key should be the same with tool node
+    else:
+        return END
+
+
+# Build the agent graph
+def create_agent():
+    # Get graph canvas
+    # The canvas should accept state schema, instead of state instance
+    builder = StateGraph(state_schema=AgentState)
+
+    builder.add_node("agent", agent_node)
+    builder.add_node("tools", ToolNode(tools=[get_weather])) # Should be the same with that in routing
+
+    builder.add_edge(START, "agent")
+    builder.add_conditional_edges(source="agent", path=should_continue, path_map=["tools", END])
+    builder.add_edge("tools", "agent")  # Do not forget to connect tool node back to agent
+
+    graph = builder.compile()
+
+    return graph
+
+# Create the agent
+agent = create_agent()
+
+# Test the agent with a weather query.
+query = "What is the weather in LA and new york??"
+inital_state = AgentState(
+    messages=[SystemMessage("You are a helpful assistant with tools to check weather and report to the user."),
+              HumanMessage(query)]
+)
+
+#Invoke the agent with the initial state
+result = agent.invoke(inital_state)
+result["messages"][-1].pretty_print()
+```
+
+###### Results
+
+> This agent called tool: get_weather with args: {'location': 'LA'}
+> This agent called tool: get_weather with args: {'location': 'New York'}
+> [AGENT] generating responses...
+> ================================== Ai Message ==================================
+>
+> The weather in Los Angeles is currently rainy, but the rain will stop in 2 hours. Similarly, New York is also experiencing rain, with the same forecast of no rain in 2 hours. Let me know if you need further details!
+
 #### 42. Chain of Thought (CoT) and Tree of Thought (ToT) Design Pattern
 
 (Skipped)
@@ -872,18 +1030,721 @@ Thinking in LangGraph: [Design Your State](https://docs.langchain.com/oss/python
 
 ###### Configuration
 
-**Important**: `Annotated` must be using in `messages`, in order to let framework read and automatically append messages, instead of overwriting it.
-
 ```python
-from typing import TypedDict, Annotated
 from langgraph.graph import StateGraph, START, END
 from langchain_ollama import ChatOllama
 from langchain_core.messages import SystemMessage, HumanMessage
-from pydantic import BaseModel, Field
 
 # Configuration
 BASE_URL = "http://localhost:11434"
-MODEL_NAME = "deepseek-r1"
+MODEL_NAME = "qwen3"
 
 llm = ChatOllama(model=MODEL_NAME, base_url=BASE_URL)
 ```
+
+###### Create AgentState
+
+**Important**:
+
+- `Annotated` must be used to tag metadata to `messages`,
+  - This is in order to let framework read and automatically **append** messages, instead of overwriting it.
+  - When functions (nodes) return `messages`, it will be automatically appended in `messages` list.
+
+- `operator` convert calculations like `+` to function.
+
+```python
+import operator
+from typing import TypedDict, Annotated
+
+class AgentState(TypedDict):
+    messages: Annotated[list, operator.add]
+```
+
+###### ToolNode
+
+LangChain: [ToolNode](https://docs.langchain.com/oss/python/langchain/tools#toolnode)
+
+`ToolNode` is a prebuilt node that executes tools in LangGraph workflows. It handles parallel tool execution, error handling, and state injection automatically.
+
+```python
+from langgraph.prebuilt import ToolNode
+```
+
+#### 46. Build Weather Tool (Realtime API)
+
+###### Tools
+
+LangChain: [Create Tools](https://docs.langchain.com/oss/python/langchain/tools#create-tools)
+
+Tools in LangChain/LangGraph is no more than a **function** that is decoratored by `@tool`.
+
+- Note that decorator `@tool` will turn a function to a `Runable`
+- So that you can `invoke` this tool.
+
+- By default, the function’s docstring becomes the tool’s description that helps the model understand when to use it
+
+###### Tool Samples
+
+Free Weather API: [wttr.in](https://github.com/chubin/wttr.in)
+
+```python
+@tool
+def get_weather(location: str) -> str:
+    """Get current weather for a location.
+
+    Use for queries about weather, temperature, or conditions in any city.
+    Examples: "weather in Paris", "temperature in Tokyo", "is it raining in London"
+
+    Args:
+        location: City name (e.g., "New York", "London", "Tokyo")
+
+    Returns:
+        Current weather information including temperature and conditions.
+    """
+    url = f"https://wttr.in/{location}?format=j1"
+    # response = requests.get(url=url, timeout=10)
+
+    # response.raise_for_status()
+    # data = response.json()
+
+    # hard-coding because wttr.in is down
+    data = {
+        "location": location,
+        "weather": "rainy, but rain will stop in 2 hours."}
+
+    return data
+```
+
+###### Tool Invocation
+
+Note that `get_weather` is wrapped as a `tool`, instead of a Python function.
+
+So, a dictionary or parameters and its arguments should be passed here.
+
+```python
+# get_weather("LA") will not work
+weather_in_LA = get_weather.invoke({"location": "LA"})
+print(weather_in_LA)
+```
+
+> {'location': 'LA', 'weather': 'rainy, but rain will stop in 2 hours.'}
+
+#### 47. Use wttr.in + Build Calculation Tool
+
+(skipped)
+
+#### 48. Test Weather & Calculation Tool
+
+(Skipped)
+
+#### 49. Create Agent Node
+
+`bind_tools` method is used here to bind tools to LLM.
+
+- LLM will read the **docstring** of tools (funtions) and generate arguments in dictionary format if necessary
+- During tool calling turn, LLM will return `AIMessage` with `tool_calls` attributes.
+- LLM can call multiple tools in one turn
+
+```python
+def agent_node(state: AgentState):
+    llm_with_tools = llm.bind_tools(tools=[get_weather])
+
+    messages = state["messages"]
+
+    response = llm_with_tools.invoke(messages)
+
+    # AIMessages will contain tool_calls attributes during tool call turn
+    if hasattr(response, "tool_calls") and response.tool_calls:
+        for tc in response.tool_calls:
+            print(f"This agent called tool: {tc.get("name", "?")} with args: {tc.get("args", "?")}")
+    else:
+        print(f"[AGENT] generating responses...")
+
+    # The value should be list, because of operator.add
+    return {"messages": [response]}
+```
+
+###### Test LLM Tool Call
+
+```python
+inital_state = AgentState(
+    messages=[SystemMessage("You are a helpful assistant with a tool to help user to know the weather"),
+              HumanMessage("Please tell me the weather in LA")]
+)
+
+results = agent_node(state=inital_state)
+print(type(results), f"Agent Node returns as the follows:\n{results}")
+```
+
+In this example, LLM calls `get_wather` twice, and return `name` and `args` separately.
+
+> This agent called tool: get_weather with args: {'location': 'Los Angeles'}
+> This agent called tool: get_weather with args: {'location': 'New York'}
+>
+> <class 'dict'>
+>
+> Agent Node returns as the follows:
+>
+> {'messages': [AIMessage(content='', additional_kwargs={}, response_metadata={'model': 'qwen3:8b', 'created_at': '2026-xx-xxTxxxxZ', 'done': True, 'done_reason': 'stop', 'total_duration': 130xx, 'load_duration': 20xx, 'prompt_eval_count': 2xx, 'prompt_eval_duration': 130xx, 'eval_count': 1xx, 'eval_duration': 96xx, 'logprobs': None, 'model_name': 'qwen3:8b', 'model_provider': 'ollama'}, id='lc_run--xx', **tool_calls=[{'name': 'get_weather', 'args': {'location': 'Los Angeles'}, 'id': 'c9xx', 'type': 'tool_call'}, {'name': 'get_weather', 'args': {'location': 'New York'}, 'id': '0exx', 'type': 'tool_call'}]**, invalid_tool_calls=[], usage_metadata={'input_tokens': 2xx, 'output_tokens': 1xx, 'total_tokens': 4xx})]}
+
+#### 50. Debug Tool Calls Inside Agents
+
+(skipped)
+
+#### 51. Add Conditional Tool Execution
+
+After LLM calling, graph runtime will decide if it should call tools, or goes to the `END` and return state to user.
+
+```python
+def should_continue(state:AgentState):
+    last_message = state["messages"][-1]
+
+    if hasattr(last_message, "tool_calls") and last_message.tool_cals:
+        # This key should be the same with tool node
+        return "tools"
+    else:
+        return END
+```
+
+#### 52. Build Full ReAct Agent
+
+In this lesson, we finally link the node together and compile the graph.
+
+```python
+def create_agent():
+    # Get graph canvas
+    # The canvas should accept state schema, instead of state instance
+    builder = StateGraph(state_schema=AgentState)
+
+    builder.add_node("agent", agent_node)
+    builder.add_node("tools", ToolNode(tools=[get_weather])) # Should be the same with that in routing
+
+    builder.add_edge(START, "agent")
+    builder.add_conditional_edges(source="agent", path=should_continue, path_map=["tools", END])
+    builder.add_edge("tools", "agent")  # Do not forget to connect tool node back to agent
+
+    graph = builder.compile()
+
+    return graph
+```
+
+#### 53. ReAct Agent in Action - Output & States
+
+```python
+agent = create_agent()				# Create the agent instance (configured with tools, e.g., weather tool)
+query = "What is the weather in LA?"	# Define the user query
+
+# Initialize the agent state with conversation history
+initial_state = AgentState(
+    messages=[
+        # System prompt: defines the assistant's role and available tools
+        SystemMessage(
+            "You are a helpful assistant with tools to check weather and report to the user."
+        ),
+        # User message: actual question from the user
+        HumanMessage(query)
+    ]
+)
+
+result = agent.invoke(initial_state)	# Invoke the agent with the initial state
+result["messages"][-1].pretty_print()	# Print the assistant's final response message
+```
+
+###### Responses from ReAct Agent
+
+Agent in LangGraph will take state in and return state. So, we have a dictionary in the end with `messages` key and a list of `SystemMessage`, `AIMessage`, `HumanMessage`.
+
+> This agent called tool: get_weather with args: {'location': 'Los Angeles'}
+> [AGENT] generating responses...
+> ================================== Ai Message ==================================
+>
+> The current weather in Los Angeles is rainy, but the rain is expected to stop within the next 2 hours. You might want to keep an umbrella handy for now, but conditions should improve soon!
+
+## Section 7: Agentic Memory and Streaming
+
+LangGraph: [Persistence](https://docs.langchain.com/oss/python/langgraph/persistence)
+
+In this section, we will learn to build a stateful agent.
+
+#### Learning Objectives
+
+- Implement conversation memory with `checkpointers`
+- Use `thread_id` for multiple conversations
+- `Stream` response from real-time UX
+
+#### 55. Understanding Agentic Memory
+
+In previous section, our agent only remembers chat history of a certain invocation.
+
+That agent will lose all information when terminated.
+
+In this section, we will create a memory layer for our agent.
+
+The memory can be stored in a database, for example `sqlite` or `postgresql`.
+
+#### 56. Notebook Setup
+
+In this section, the same agent will be used.
+
+LangGraph: [Add Short-Term Memory](https://docs.langchain.com/oss/python/langgraph/add-memory#add-short-term-memory)
+
+```python
+# Use RAM by default
+from langgraph.checkpoint.memory import MemorySaver
+```
+
+#### 57. Agent Node with Tools
+
+(Skipped)
+
+#### 58 & 59. ReAct Agent with MemorySaver - Demo
+
+###### Build Agent
+
+- To equip our agent with short-term memory, we need:
+  - Pass `InMemorySaver` as `checkpointer` when compiling the graph
+  - Specify a `thread_id` when invoking the agent
+    - The `thread_id` should be provided via the `configurable` argument
+
+```python
+# Build the agent graph
+def create_agent():
+    # Get graph canvas
+    # The canvas should accept state schema, instead of state instance
+    builder = StateGraph(state_schema=AgentState)
+    memory = InMemorySaver()
+
+    builder.add_node("agent", agent_node)
+    builder.add_node("tools", ToolNode(tools=[get_weather])) # Should be the same with that in routing
+
+    builder.add_edge(START, "agent")
+    builder.add_conditional_edges(source="agent", path=should_continue, path_map=["tools", END])
+    builder.add_edge("tools", "agent")  # Do not forget to connect tool node back to agent
+
+    graph = builder.compile(checkpointer=memory)
+
+    return graph
+```
+
+###### Test Agent
+
+```python
+# Configure thread id
+config = {"configurable" :{"thread_id": "react-agent-building-demo"}}
+
+# ========== First Run ===========================
+# Test the agent with a weather query.
+query = "What is the weather in LA and new york??"
+inital_state = AgentState(
+    messages=[SystemMessage("You are a helpful assistant with tools to check weather and report to the user."),
+              HumanMessage(query)]
+)
+
+#Invoke the agent with the initial state
+result_first_turn = agent.invoke(inital_state, config=config)
+result_first_turn["messages"][-1].pretty_print()
+
+# ========== Second Run ===========================
+review_query = "What topic did the agent just discuss with the user? Did it call any tools? If so, which ones and what were the arguments?"
+cont_state = AgentState(
+    messages=[HumanMessage(review_query)]
+)
+
+# Here, messages (list) in cont_state will be added to initial_state
+# So, agent will know what happened in the first run
+result_second_turn = agent.invoke(cont_state, config=config)
+result_second_turn["messages"][-1].pretty_print()
+```
+
+> This agent called tool: get_weather with args: {'location': 'LA'}
+> This agent called tool: get_weather with args: {'location': 'New York'}
+> [AGENT] generating responses...
+> ================================== Ai Message ==================================
+>
+> The weather in both locations is currently rainy, but the rain is expected to stop in 2 hours.
+>
+> - **Los Angeles (LA):** Rainy, with rain stopping in 2 hours.
+> - **New York:** Rainy, with rain stopping in 2 hours.
+>
+> Let me know if you need further details! 🌦️
+> [AGENT] generating responses...
+> ================================== Ai Message ==================================
+>
+> The agent previously discussed the **weather in Los Angeles (LA) and New York** with the user.
+>
+> **Tools called:**
+>
+> 1. `get_weather` with argument `{"location": "LA"}`
+> 2. `get_weather` with argument `{"location": "New York"}`
+>
+> These tool calls retrieved the weather information for both locations.
+
+#### 60 & 61 Streaming Agent Output
+
+###### Streaming in LangGraph
+
+Streaming in LangGraph will only generate streams in `node` level, instead of `token` level
+
+- It will returns a **dictionary** in each node, instead of `Messages`
+
+> {'agent': {'messages': [AIMessage(content='The weather in Los Angeles is currently rainy, but the rain is expected to stop in 2 hours. Similarly, New York is also experiencing rain, with the same forecast of rain stopping in 2 hours. Let me know if you need further details!', additional_kwargs={}, response_metadata={'model': 'qwen3:8b', 'created_at': '2026-xx-xxTxx:xx:xxZ', 'done': True, 'done_reason': 'stop', 'total_duration': 8xx, 'load_duration': 4xx, 'prompt_eval_count': 3xx, 'prompt_eval_duration': 6xx,'eval_count': 1xx, 'eval_duration': 7xx, 'logprobs': None, 'model_name': 'qwen3:8b', 'model_provider': 'ollama'}, id='lc_run--xx', tool_calls=[], invalid_tool_calls=[], usage_metadata={'input_tokens': 3xx, 'output_tokens': 1xx, 'total_tokens': 4xx})]}}
+
+So, it can be printed out as follows:
+
+```
+for chunk in agent.stream(initial_state, config=config):
+    if "agent" in chunk:
+        print(f"[AGENT]: {chunk['agent']['messages'][-1].content}")
+    if "tools" in chunk:
+        print(f"[TOOLS]: {chunk['tools']['messages'][-1].content}")
+```
+
+###### Streaming Result
+
+> [TOOLS]: {"location": "New York", "weather": "rainy, but rain will stop in 2 hours."}
+> [AGENT] generating responses...
+> [AGENT]: The weather in both Los Angeles and New York is currently **rainy**, with rain expected to stop in **2 hours**.
+>
+> Let me know if you need further details! 🌧️
+
+####
+
+#### 62. Retrieve Historical Chat Messages
+
+(Skipped)
+
+## Section 8 Short-Term Memory
+
+#### Learning Objectives:
+
+- Understand InMemorySaver vs. SqliteSaver
+
+- Save conversation that survive restarts
+
+- Handle multiple users with thread isolation
+
+#### 63. Production-Ready Memory Architecture
+
+Usually, short-term memory handle `thread ID`, while long-term memory handle `user ID`.
+
+In this section, we will use `sqlite` and `postgreSQL` adaptors.
+
+#### 64. Short-Term vs. Long-Term Memory in Agents
+
+###### Memory
+
+- Short-Term Memory
+  - Chat History
+  - Checkpointed state
+  - Scoped by `thread_id`
+- Long-Term Memory
+  - Episodic Memory
+    - User-specific past interactions, preference
+    - Stored externally (DB / vector store)
+  - Semantic Memory
+    - Knowledge base (LLM weights or RAG corpus)
+  - Procedural Memory
+    - How to perform tasks
+    - Encoded in model weights, prompts, or agent workflow
+
+#### 65. How LLM Updates Chat & Working Memory
+
+In LangGraph
+
+- `State: {"messages": [S1, H1, A1, T1, A2 ...], ...}`
+- As query comes in, messages in short-term memory will be loaded (if exists).
+- And after the execution, newly generated messages will be attached to the state at the end.
+
+#### 66. Notebook Setup for Persistence
+
+LangGraph: [Checkpointer Libraries](https://docs.langchain.com/oss/python/langgraph/persistence#checkpointer-libraries)
+
+Before starting, necessary libraries should be installed.
+
+```python
+uv add langgraph-checkpoint-sqlite
+uv add langgraph-checkpoint-postgres
+```
+
+In this section, instead of `InMemorySaver`, `SqliteSaver` and `PostgresSaver` will be used here.
+
+- `SqliteSaver` and `PostgresSaver` should be passed in **connection**, instead of DB path.
+
+```python
+import sqlite3
+from langgraph.checkpoint.sqlite import SqliteSaver
+
+import psycopg
+from langgraph.checkpoint.postgres import PostgresSaver
+```
+
+#### 67. Store Memories in SQLite
+
+###### Initialize DataBase Connection
+
+```python
+db_path = "checkpoint.db"
+conn = sqlite3.connect(database=db_path, check_same_thread=False)
+checkpointer = SqliteSaver(conn)
+```
+
+###### Configure Agent and Chat
+
+```python
+def chat(agent, query, thread_id):
+    initial_state = AgentState(
+        messages=[HumanMessage(query)]
+        )
+
+    # Configure thread id
+    config = {"configurable" :{"thread_id": thread_id}}
+
+    response = agent.invoke(initial_state, config=config)
+    response["messages"][-1].pretty_print()
+
+# Create the agent and chat with it
+query = "What is the weather in LA and new york??"
+thread_id = "react-agent-building-demo"
+agent = create_agent(checkpointer=checkpointer)
+
+chat(agent, query, thread_id)
+```
+
+###### Results
+
+Chat history has been stored in `checkpoint.db` in our directory.
+
+Check it using `sqlite3 checkpoint.db`
+
+```
+sqlite> .table
+checkpoints  writes
+
+sqlite> .schema
+CREATE TABLE checkpoints (
+                thread_id TEXT NOT NULL,
+                checkpoint_ns TEXT NOT NULL DEFAULT '',
+                checkpoint_id TEXT NOT NULL,
+                parent_checkpoint_id TEXT,
+                type TEXT,
+                checkpoint BLOB,
+                metadata BLOB,
+                PRIMARY KEY (thread_id, checkpoint_ns, checkpoint_id)
+            );
+CREATE TABLE writes (
+                thread_id TEXT NOT NULL,
+                checkpoint_ns TEXT NOT NULL DEFAULT '',
+                checkpoint_id TEXT NOT NULL,
+                task_id TEXT NOT NULL,
+                idx INTEGER NOT NULL,
+                channel TEXT NOT NULL,
+                type TEXT,
+                value BLOB,
+                PRIMARY KEY (thread_id, checkpoint_ns, checkpoint_id, task_id, idx)
+            );
+```
+
+Our agent will remember the chat history now:
+
+```python
+review_query = "What kind of topic does this conversation involve? Please summarize in one or two sentences."
+thread_id = "react-agent-building-demo"
+agent = create_agent(checkpointer=checkpointer)
+
+chat(agent, review_query, thread_id)
+```
+
+```
+================================== Ai Message ==================================
+
+This conversation involves checking the current weather conditions for Los Angeles and New York, revealing that both locations are experiencing rain with the same forecast of rain stopping in 2 hours.
+```
+
+#### 68. Create Free PostgreSQL DB
+
+(Skipped)
+
+#### 69. Persist Memory to Remote PostgreSQL
+
+```python
+# Configure thread id and database path for checkpointing
+db_path = "checkpoint.db"
+conn = psycopg.connect(conninfo=os.getenv("POSTGRES_CONNINFO"),
+                       autocommit=True,
+                       prepare_threshold=0)
+checkpointer = PostgresSaver(conn)
+
+# This is to initiate tables
+checkpointer.setup()
+```
+
+#### 70. Alternative Ways to Connect to PostgreSQL
+
+```python
+with PostgresSaver.from_conn_string(os.getenv("POSTGRES_CONNINFO")) as checkpointer:
+    agent = create_agent(checkpointer=checkpointer)
+    review_query = "How many times I have asked you? What queries did I ask?"
+    thread_id = "react-agent-building-demo"
+    chat(agent, review_query, thread_id)
+```
+
+We can see that our agent answered questions precisely.
+
+> [AGENT] generating responses...
+> ================================== Ai Message ==================================
+>
+> 1. "What kind of topic does this conversation involve? Please summarize in one or two sentences."
+> 2. "How many times I have asked you? What queries did I ask?"
+>
+> You have asked **2 times** in total. Let me know if you need further clarification!
+
+## Section 9: Long-Term Memory
+
+In this section, we will focus on `user ID` and `long-term` memory.
+
+- Note that `Saver` is for short-term memory, while `Store` is for long-term memory.
+- `user ID` is not directly used, instead, `namespace` should be used as a **tuple**
+  - User ID
+    - Preference - namespace
+      - food
+      - taste
+    - Address - namespace
+      - city
+      - street
+      - room number
+
+#### 71. Intro to Long-Term Memory
+
+`Vector search` will be used to search and match user memory.
+
+In this lesson, we will use Postgres
+
+```python
+from langgraph.store.sqlite import SqliteStore
+from langgraph.store.postgres import PostgresStore
+```
+
+#### 72. PostgreSQL Setup for Short-Term + Long-Term Memory
+
+`Ollama Embedding Models` will be used to convert strings to vectors.
+
+The dimension is 768 in `nomic-embed-text`: [HuggingFace](https://huggingface.co/nomic-ai/nomic-embed-text-v1.5#adjusting-dimensionality)
+
+```python
+from langchain_ollama import OllamaEmbeddings
+
+EMBEDDING_MODEL = "nomic-embed-text"
+```
+
+###### Sample Code
+
+```python
+# =============================================
+# Store and Saver Setup
+# =============================================
+def setup_memory(postgres_conninfo: str):
+    # Short term memory saver using Postgres, for checkpointing the agent state and conversation history
+    checkpointer_conn = psycopg.connect(conninfo=postgres_conninfo, autocommit=True, prepare_threshold=0)
+    checkpointer = PostgresSaver(checkpointer_conn)
+    checkpointer.setup()     # first time setup the database tables for the store
+
+    # Long term memory store and saver using Postgres
+    store_conn = psycopg.connect(conninfo=postgres_conninfo, autocommit=True, prepare_threshold=0)
+    store = PostgresStore(store_conn, index={'embed': embed_texts, 'dims': 768})
+    store.setup()           # first time setup the database tables for the store
+
+    return checkpointer, store
+
+checkpointer, store = setup_memory(POSTGRES_CONNINFO)
+```
+
+#### 73 ~ 75. Long-Term Memory Tools - store
+
+###### Memory Operations
+
+Memory in LangGraph basically adapts a `key-value` pair to store data.
+
+- `put`
+- `get`
+- `search`
+- `delete`
+
+###### Memory in Action
+
+```python
+# =============================================
+# Store and Retrieve Memories
+# =============================================
+user_id = "test_user_123"
+namespace = (user_id, "preferences")
+
+# Save some user preferences in the store
+# store.put(namespace=namespace, key="food", value={"favorite": ["pizza", "pasta"], "least_favorite": "broccoli"})
+# store.put(namespace=namespace, key="color", value={"favorite": ["blue", "green"], "least_favorite": "yellow"})
+
+# Retrieve user preferences from the store - get by key
+user_food_preference = store.get(namespace=namespace, key="food")
+print(f"User food preference: {user_food_preference}")
+
+# Retrieve user color preference from the store - get by semantic search
+query = "What is the user's favorite color?"
+retrieved_items = store.search(namespace, query=query, limit=1)
+print(f"Retrieved items for query '{query}':\n{retrieved_items}")
+
+# Delete a key from the store
+# store.delete(namespace=namespace, key="color")
+```
+
+###### Results
+
+- `get` method only extract value by using a specific key
+  - Return a single `Item`
+- `search` method will match user's query using embedded vectors and find the most close match (limit=1)
+  - Return a list of `Item`
+
+> User food preference: Item(namespace=['test_user_123', 'preferences'], key='food', value={'favorite': ['pizza', 'pasta'], 'least_favorite': 'broccoli'}, created_at='2026-xx-xxTxx:xx:xx.xx+xx:00', updated_at='xx')
+>
+> Retrieved items for query 'What is the user's favorite color?':
+> [Item(namespace=['test_user_123', 'preferences'], key='color', value={'favorite': ['blue', 'green'], 'least_favorite': 'yellow'}, created_at='2026-xx-xxTxx:xx:xx.xx+xx:00', updated_at='xx', score=0.78xxx)]
+
+#### 76 & 77. Create Memory Management Tools
+
+```python
+# =============================================
+# Tools for Memory Management
+# =============================================
+
+@tool
+def save_user_memory(user_id: str, category: str, information: dict) -> dict:
+    """
+    Save user preference or information to long-term memory.
+
+    Args:
+        user_id: User identifier
+        category: Category of information (e.g. 'food', 'hobbies', 'schedule', 'location)
+        information: Dictionary that containing the information to use
+    """
+    namespace = (user_id, "preferrence")
+    try:
+        store.put(namespace=namespace, key=category, value=information)
+    except Exception as e:
+        return {"status": "failed",
+                "error": e}
+    return {"status": "succeeded", "error": "N/A"}
+```
+
+#### 78. Create Agent Node with Memory Tools: Part 1
+
+#### 79. Create Agent Node with Memory Tools: Part 2
+
+#### 80. Create Agent Node with Memory Tools: Part 3
+
+#### 81. Create LangGraph Agent
+
+#### 82. Take Fresh Store and Saver Connection in Agent Node
+
+#### 83. Agent with Long-term and Short-term Memory in Action
+
+## Section 10: Guardrail, Interrupt and Human in the Loop
+
+#### 84. Introduction to Human in the Loop and PII Guardrail
