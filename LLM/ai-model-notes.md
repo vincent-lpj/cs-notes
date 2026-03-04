@@ -14,11 +14,23 @@ Anthropic: [Home](https://www.anthropic.com/)
 
 Google: [Gemini Models](https://ai.google.dev/gemini-api/docs/models)
 
+Llama: [Build the Future](https://www.llama.com/)
+
 DeepSeek: [GitHub Homepage](https://github.com/deepseek-ai)
 
 Qwen: [API Platform](https://qwen.ai/apiplatform)
 
 Mistral AI: [Models](https://mistral.ai/models)
+
+## Open Weight Models
+
+#### GPT-OSS
+
+Open AI: [Introducing GPT-OSS](https://openai.com/index/introducing-gpt-oss/)
+
+Ollama Library: [GPT-OSS](https://ollama.com/library/gpt-oss)
+
+YouTube: [OpenAI's New Open Models - GPT-OSS 120B & 20B](https://www.youtube.com/watch?v=guHW1Eb3xSs)
 
 #### DeepSeek OCR
 
@@ -83,3 +95,5 @@ Anthropic: [Introducing Claude Sonnet 4.6](https://www.anthropic.com/news/claude
 #### Opus 4.6
 
 Youtube: [GPT-5.3-Codex and Opus 4.6 in 6 min..]()
+
+Anthropic: [Introducing Claude Opus 4.6](https://www.anthropic.com/news/claude-opus-4-6)
