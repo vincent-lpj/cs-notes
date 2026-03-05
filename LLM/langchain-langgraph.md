@@ -9,7 +9,7 @@
 ###### Object
 
 - Build generative AI agents using LangGraph and Ollama.
-- Learn how modern AI agent work
+- Learn how modern AI agent works
 
 ###### Overview
 
@@ -1709,10 +1709,34 @@ print(f"Retrieved items for query '{query}':\n{retrieved_items}")
 
 #### 76 & 77. Create Memory Management Tools
 
+`get_user_memory` and `save_user_memory` are created to manage user's long-term memory
+
+- `search` can also be applied here to search for preferences.
+
 ```python
 # =============================================
 # Tools for Memory Management
 # =============================================
+@tool
+def get_user_memory(user_id: str, category: str) -> dict:
+    """
+    Retrieve user preference or information from long term memory
+
+    Args:
+        user_id: User identifier
+        category: Category of information (e.g. 'food', 'hobbies', 'schedule', 'location)
+    """
+    namespace = (user_id, "preference")
+
+    try:
+        item = store.get(namespace=namespace, key=category)
+        return {"status": "succeeded",
+                "error": "N/A",
+                "data_retrieved": item.value}
+    except Exception as e:
+        return {"status": "failed",
+                "error": e,
+                "data_retrieved": "Not Found"}
 
 @tool
 def save_user_memory(user_id: str, category: str, information: dict) -> dict:
@@ -1733,18 +1757,822 @@ def save_user_memory(user_id: str, category: str, information: dict) -> dict:
     return {"status": "succeeded", "error": "N/A"}
 ```
 
-#### 78. Create Agent Node with Memory Tools: Part 1
+#### 78 ~ 80. Create Agent Node with Memory Tools
 
-#### 79. Create Agent Node with Memory Tools: Part 2
+```python
+def agent_node(state: AgentState):
+    # Bind tools to the LLM, so that it can call tools during generation.
+    llm_with_tools = llm.bind_tools(tools=TOOLS)
 
-#### 80. Create Agent Node with Memory Tools: Part 3
+    user_id = state.get("user_id", "unknown")
+    namespace = (user_id, "preference")
+
+    last_message = state["messages"][-1].content
+    memories = store.search(namespace, query=last_message, limit=3)
+
+    # build context memory for personalized answer
+    context_line = []
+    for mem in memories:
+        text = f" - {mem.key}: {mem.value}"
+        context_line.append(text)
+    memory_text = "\n\n".join(context_line) if context_line else "No user preference found in the store yet."
+    print(f"User memory retrieved: {memory_text}")
+
+    SYSTEM_PROMPT = f"""
+                    You are a helpful assistant with long-term memory capabilities and access to utility tools.
+
+                        User ID: {user_id}
+                        Current User Memories:
+                        {memory_text}
+
+                        MEMORY TOOLS USAGE:
+
+                        1. save_user_memory: Use when user shares NEW information
+                        - Always pass user_id: "{user_id}"
+                        - Food preferences (diet, likes, dislikes, allergies)
+                        - Work information (role, company, interests)
+                        - Hobbies and activities
+                        - Schedule and availability
+                        - Location and timezone
+
+                        2. get_user_memory: Use when you need to recall specific category
+                        - Always pass user_id: "{user_id}"
+                        - When answering questions about past preferences
+                        - When user asks "what do you know about me?"
+                        - When making recommendations based on preferences
+
+                        UTILITY TOOLS USAGE:
+                        3. get_weather: Use to retrieve current weather information
+                        - Pass location as parameter (city name, zip code, or coordinates)
+                        - Use when user asks about weather conditions
+                        - Use when planning activities that depend on weather
+                        - Examples: "What's the weather in London?", "Will it rain today?"
+
+                        4. calculate: Use to perform mathematical calculations
+                        - Pass mathematical expression as string parameter
+                        - Supports basic arithmetic (+, -, *, /)
+                        - Supports advanced operations (powers, roots, trigonometry)
+                        - Use when user needs numerical computations
+                        - Examples: "What's 15% of 250?", "Calculate the area of a circle with radius 5"
+
+                        GUIDELINES:
+                        - Always save when user shares personal information
+                        - Retrieve specific categories when needed for context
+                        - Use semantic search results shown above for general context
+                        - Use get_weather when location-based weather info is needed
+                        - Use calculate for any mathematical operations or conversions
+                        - Be conversational and natural when using all tools
+                        - Combine tools when appropriate (e.g., weather + saved location preference)
+                    """
+
+    system_message = SystemMessage(SYSTEM_PROMPT)
+    messages = [system_message] + state["messages"]
+    response = llm_with_tools.invoke(messages)
+
+    # AIMessages will contain tool_calls attributes during tool call turn
+    if hasattr(response, "tool_calls") and response.tool_calls:
+        for tc in response.tool_calls:
+            print(f"This agent called tool: {tc.get('name', '?')} with args: {tc.get('args', '?')}")
+    else:
+        print(f"[AGENT] generating responses...")
+
+    # The value of messages should be list, because of operator.add
+    return {"messages": [response]}
+```
 
 #### 81. Create LangGraph Agent
 
+```python
+# Build the agent graph
+def create_agent(checkpointer):
+    # Get graph canvas
+    # The canvas should accept state schema, instead of state instance
+    builder = StateGraph(state_schema=AgentState)
+
+    builder.add_node("agent", agent_node)
+    builder.add_node("tools", ToolNode(tools=TOOLS)) # Should be the same with that in routing
+
+    builder.add_edge(START, "agent")
+    builder.add_conditional_edges(source="agent", path=should_continue, path_map=["tools", END])
+    builder.add_edge("tools", "agent")  # Do not forget to connect tool node back to agent
+
+    graph = builder.compile(checkpointer=checkpointer)
+
+    return graph
+```
+
 #### 82. Take Fresh Store and Saver Connection in Agent Node
+
+`user_id` for long-term memory, and `thread_id` for short-term memory.
+
+- `user_id` is used to extract user's information by `store.get` or `store.search`
+- `thread_id` is used to configure checkpointer
+
+```python
+# Define chat function to interact with the agent
+def chat(agent, query, user_id, thread_id):
+    initial_state = AgentState(
+        messages=[HumanMessage(query)],
+        user_id=user_id
+        )
+
+    # Configure thread id
+    config = {"configurable" :{"thread_id": thread_id}}
+
+    response = agent.invoke(initial_state, config=config)
+    response["messages"][-1].pretty_print()
+```
 
 #### 83. Agent with Long-term and Short-term Memory in Action
 
+> Enter your query (or '/exit' to quit): tell me the weather in the city I currently live.
+> User memory retrieved: No user preference found in the store yet.
+> This agent called tool: get_user_memory with args: {'user_id': 'demo-user-001', 'category': 'location'}
+> User memory retrieved: No user preference found in the store yet.
+> [AGENT] generating responses...
+> ================================== Ai Message ==================================
+>
+> I don't have access to your current location information. Could you please tell me which city you're currently living in? Once you share that, I can check the weather for you.
+>
+> Enter your query (or '/exit' to quit): I live in LA, and I prefer to eat strawberry and watermelon.
+> User memory retrieved: No user preference found in the store yet.
+> This agent called tool: save_user_memory with args: {'user_id': 'demo-user-001', 'category': 'location', 'information': {'city': 'LA'}}
+> This agent called tool: save_user_memory with args: {'user_id': 'demo-user-001', 'category': 'food', 'information': {'preferences': ['strawberry', 'watermelon']}}
+> User memory retrieved: No user preference found in the store yet.
+> [AGENT] generating responses...
+> ================================== Ai Message ==================================
+>
+> The weather in Los Angeles is currently 72°F with clear skies. It looks like a perfect day to enjoy your favorite fruits—strawberry and watermelon! 🍓🍉 Let me know if you need further details.
+
+> Enter your query (or '/exit' to quit): cool, I would like to take a tour at London next week, tell me if there is my favourate food there.
+> User memory retrieved: No user preference found in the store yet.
+> This agent called tool: get_weather with args: {'location': 'London'}
+> User memory retrieved: No user preference found in the store yet.
+> [AGENT] generating responses...
+> ================================== Ai Message ==================================
+>
+> The weather in London is currently rainy, but the rain is expected to stop in 2 hours. 🌧️ While you wait for the rain to clear, here are some food recommendations in London:
+>
+> 1. **Street Food**: Try fresh strawberries (a local favorite!) or watermelon at markets like Camden or Borough Market.
+> 2. **Indoor Options**: If the rain lingers, enjoy a cozy meal at a traditional British pub or try a seafood dish at a riverside restaurant.
+> 3. **Fruit Markets**: London’s markets often have seasonal fruits, including strawberries in summer.
+>
+> Let me know if you’d like help planning a specific activity or meal!
+
 ## Section 10: Guardrail, Interrupt and Human in the Loop
 
+So far, we have worked with agent that is completely autonomous, however, it is may not be a good idea.
+
+There are some components in your system that you would like to only execute it under your approval.
+
+For example, money transfer, deleting files, etc.
+
+                                      +-------------+
+                                      |  __start__  |
+                                      +-------------+
+                                            |
+                                            v
+                                    +----------------+
+                                    | PII Guardrail 	| -------
+                                    +----------------+				|
+                                            |									|
+                                            v									|
+                                    +----------------+				|
+                                    |    LLM/Agent   |				|
+                                    +----------------+				|
+                                     |    |       |						|
+                            (call tool)   |   	(finish)			|
+                                     |    |       |						|
+                                     v    |       v						|
+                               +------------+     |						|
+                               |    Tool    |     |						|
+                               +------------+     |						|
+                                                  |						|
+                                                  |						|
+                                                  v						v
+                                                 +-------------+
+                                                 |   __end__   |
+                                                 +-------------+
+
 #### 84. Introduction to Human in the Loop and PII Guardrail
+
+`PII` refers to **personal identification**. However, unlike langchain, there is no prebuilt PII Guardrail here in LangGraph, because it is highly customizable.
+
+`Human In the Loop` occurs in `tool calling`, it stops the tools from executing and end the loop, until the approval is given.
+
+###### Interrupt and Command
+
+LangGraph: [Interrupts](https://docs.langchain.com/oss/python/langgraph/interrupts)
+
+Interrupts allow you to pause graph execution at specific points and wait for external input before continuing.
+
+This enables human-in-the-loop patterns where you need external input to proceed.
+
+- to use `interrupt`, you need a **checkpointer** and a **thread_id**
+- when `interrupt` is called, graph execution is suspended, state is saved and a special value `__interrupt` is returned.
+- Using `Command(resume=...)` to continue, you must have the same `thread_id`
+
+#### 85. HITL Notebook Setup
+
+(skipped)
+
+#### 86. Create Transfer Money Tool with Interrupt for User Approval
+
+```python
+# =============================================
+# Transfer Money Tool
+# =============================================
+@tool
+def transfer_money(amount: int, recipient: str) -> dict:
+    """
+    Transfer moneny. Large transfers require approval
+
+    Args:
+        amount (int): Amount to transfer in dollars
+        recipient (str): Recipient of the transfer
+    """
+    if amount > 1000:
+        approval = interrupt(
+            {
+                "type": "approval_required",
+                "amount": amount,
+                "recipient": recipient
+            }
+        )
+        if approval.get("decision") != "approve":
+            return {"status": "canceled", "amount": amount, "recipient": recipient}
+
+    return {"status": "success", "amount": amount, "recipient": recipient}
+```
+
+#### 87. Create PII Guardrail Node
+
+###### Pattern Recognition
+
+Regex 101: [Regular Expressions 101](https://regex101.com/)
+
+There are some ready-to-use sample of regular expression for identification of certain types in Regex 101.
+
+```python
+# =============================================================================
+# Guardrail Node - PII Detection
+# =============================================================================
+# PII Pattern Definitions
+patterns = {
+        "SSN": r'\b\d{3}-\d{2}-\d{4}\b',  # SSN: 123-45-6789
+        "Credit Card": r'\b\d{4}[\s-]?\d{4}[\s-]?\d{4}[\s-]?\d{4}\b',  # Credit Card: 1234-5678-9012-3456
+        "Mobile Number": r'\b(\+?\d{1,3}[-.\s]?)?\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}\b',  # Mobile: +1-234-567-8900
+        "Email": r'\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b',  # Email: user@example.com
+        "URL/Link": r'https?://[^\s]+|www\.[^\s]+'  # URL: http://example.com or www.example.com
+    }
+```
+
+###### Guardrail Node
+
+Here, we define a guardrail node which use `re.match` to examine if user's input matches some of the patterns above.
+
+- If matching, a conditional edge will connect this node to END node. The phrases in `SystemMessage` will be presented to user
+- User's query will flow to agent node if no matches.
+
+```python
+def guardrail_node(state: AgentState):
+    last_message = state["messages"][-1].content
+
+    for pii_type, pii_pattern in patterns.items():
+        if re.search(pattern=pii_pattern, string=last_message):
+            # Will be connected to the END node and share with user
+            return {
+                "messages": [SystemMessage(content=f"Request Blocked: Contains {pii_type}.\nPlease Do not share sensitive personal information to the agent")]
+            }
+```
+
+#### 88. Create Agent Node
+
+(skipped)
+
+#### 89. Create Agent and Guardrail Router Conditional Edges
+
+(Skipped)
+
+#### 90. Create SQLite Saver for Agent State Persistence
+
+(Skipped)
+
+#### 91. Create Agent with PII Guardrail Protection
+
+(Skipped)
+
+#### 92. Execute Agent with PII Guardrail and Money Transfer Tool
+
+```python
+query = "Write an email to Alice. Her email address is example@email.com"
+response = agent.invoke(input= AgentState(messages=[HumanMessage(query)],user_id="PII-user-001"),
+                        config={"configurable" :{"thread_id": "agent-PII-demo-1"}})
+response["messages"][-1].pretty_print()
+```
+
+> PII detected. Type Email
+> ================================ System Message ================================
+>
+> Request Blocked: Contains Email.
+> Please Do not share sensitive personal information to the agent
+
+#### 93. Execute Agent with Human In the Loop Approval
+
+###### Interrupt
+
+```python
+query = "Please transfer $1500 to Alice."
+response = agent.invoke(input= AgentState(messages=[HumanMessage(query)],user_id="HITL-user-004"),
+                        config={"configurable" :{"thread_id": "agent-HITL-demo-4"}})
+print(response)
+```
+
+In the responses below, we can see that:
+
+- When `transfer_money` is called, and the amount is larger than $1000, the graph is stoped and returns a state
+- In the state, a key-value pair called `__interrupt__` is returned
+  - `type` is exactly what we defined in `interrupt` function
+
+```json
+{
+  "user_id": "HITL-user-004",
+  "is_sensitive": False,
+  "messages": [
+    {
+      "type": "HumanMessage",
+      "content": "Please transfer $1500 to Alice."
+    },
+    {
+      "type": "AIMessage",
+      "content": "",
+      "tool_calls": [
+        {
+          "name": "transfer_money",
+          "args": {
+            "amount": 1500,
+            "recipient": "Alice"
+          },
+          "id": "1fxx"
+        }
+ ...
+    }
+  ],
+  '__interrupt__':
+  [Interrupt(value={'type': 'approval_required',
+                    'amount': 1500,
+                    'recipient': 'Alice'},
+             id='ed897773d917c5b4834683a6f872dead')]}
+}
+```
+
+###### Resume
+
+Then we can resume our tool calling using `Command`.
+
+```python
+response = agent.invoke(input= Command(resume={"decision": "approve"}),
+                        config={"configurable" :{"thread_id": "agent-HITL-demo-4"}})
+```
+
+`__interrupt__` key-value pair disappeared in our `AgentState`, a normal `AIMessage` is generated in messages.
+
+> AIMessage(content='The transfer of $1500 to Alice has been successfully processed. Let me know if you need further assistance!',...)
+
+#### 94. Stress Test of Agent with PII Guardrail and HITL Approval Workflow
+
+(Skipped)
+
+#### Sample Code:
+
+```python
+import os
+import re
+import operator
+import requests
+from dotenv import load_dotenv
+from typing import TypedDict, Annotated
+
+from langchain_ollama import ChatOllama, OllamaEmbeddings
+from langgraph.graph import StateGraph, START, END
+from langgraph.prebuilt import ToolNode
+from langchain_core.tools import tool
+from langchain_core.messages import SystemMessage, HumanMessage
+
+from langgraph.types import Command, interrupt
+
+# Use Postgres
+import psycopg
+from langgraph.checkpoint.postgres import PostgresSaver
+from langgraph.store.postgres import PostgresStore
+
+
+# =============================================
+# Configuration
+# =============================================
+
+# Load environment variables from .env file, so that LangSmith tracing is enabled.
+load_dotenv()
+
+# Configuration for Ollama server and model
+BASE_URL = "http://localhost:11434"
+MODEL_NAME = "qwen3:8b"
+EMBEDDING_MODEL = "nomic-embed-text"
+POSTGRES_CONNINFO = os.getenv("POSTGRES_CONNINFO")
+
+# Initialize the LLM and embeddings
+llm = ChatOllama(model=MODEL_NAME, base_url=BASE_URL)
+embeddings = OllamaEmbeddings(model=EMBEDDING_MODEL, base_url=BASE_URL)
+
+# Define the state schema for the agent. The state will keep track of the conversation messages.
+class AgentState(TypedDict):
+    messages: Annotated[list, operator.add]
+    user_id: str
+    is_sensitive: bool  # flag to indicate if the last message contains sensitive information
+
+
+# =============================================
+# Store and Saver Setup
+# =============================================
+# Define a simple embedding function
+def embed_texts(texts: list[str]) -> list[list[float]]:
+    return embeddings.embed_documents(texts)
+
+# Set up memory saver and store
+def setup_memory(postgres_conninfo: str):
+    # Short term memory saver using Postgres, for checkpointing the agent state and conversation history
+    checkpointer_conn = psycopg.connect(conninfo=postgres_conninfo, autocommit=True, prepare_threshold=0)
+    checkpointer = PostgresSaver(checkpointer_conn)
+    checkpointer.setup()     # first time setup the database tables for the store
+
+    # Long term memory store and saver using Postgres
+    store_conn = psycopg.connect(conninfo=postgres_conninfo, autocommit=True, prepare_threshold=0)
+    store = PostgresStore(store_conn, index={'embed': embed_texts, 'dims': 768}) # embedding dimension is 768 for nomic-embed-text
+    store.setup()           # first time setup the database tables for the store
+
+    return checkpointer, store
+
+checkpointer, store = setup_memory(POSTGRES_CONNINFO)
+
+
+
+# =============================================
+# Transfer Money Tool
+# =============================================
+@tool
+def transfer_money(amount: int, recipient: str) -> dict:
+    """
+    Transfer moneny. Large transfers require approval
+
+    Args:
+        amount (int): Amount to transfer in dollars
+        recipient (str): Recipient of the transfer
+    """
+    if amount > 1000:
+        approval = interrupt(
+            {
+                "type": "approval_required",
+                "amount": amount,
+                "recipient": recipient
+            }
+        )
+        if approval.get("decision") != "approve":
+            return {"status": "canceled", "amount": amount, "recipient": recipient}
+
+    return {"status": "success", "amount": amount, "recipient": recipient}
+
+# =============================================
+# Tools for Memory Management
+# =============================================
+
+@tool
+def get_user_memory(user_id: str, category: str) -> dict:
+    """
+    Retrieve user preference or information from long term memory
+
+    Args:
+        user_id: User identifier
+        category: Category of information (e.g. 'food', 'hobbies', 'schedule', 'location)
+    """
+    namespace = (user_id, "preference")
+
+    try:
+        item = store.get(namespace=namespace, key=category)
+        return {"status": "succeeded",
+                "error": "N/A",
+                "data_retrieved": item.value}
+    except Exception as e:
+        return {"status": "failed",
+                "error": e,
+                "data_retrieved": "Not Found"}
+
+
+@tool
+def save_user_memory(user_id: str, category: str, information: dict) -> dict:
+    """
+    Save user preference or information to long-term memory.
+
+    Args:
+        user_id: User identifier
+        category: Category of information (e.g. 'food', 'hobbies', 'schedule', 'location)
+        information: Dictionary that containing the information to use
+    """
+    namespace = (user_id, "preferrence")
+    try:
+        store.put(namespace=namespace, key=category, value=information)
+    except Exception as e:
+        return {"status": "failed",
+                "error": e}
+    return {"status": "succeeded", "error": "N/A"}
+
+
+# =============================================
+# General Tools
+# =============================================
+
+# Define a tool for getting weather information.
+@tool
+def get_weather(location: str) -> dict:
+    """Get current weather for a location.
+
+    Use for queries about weather, temperature, or conditions in any city.
+    Examples: "weather in Paris", "temperature in Tokyo", "is it raining in London"
+
+    Args:
+        location: City name (e.g., "New York", "London", "Tokyo")
+
+    Returns:
+        Current weather information including temperature and conditions.
+    """
+
+    # In a real implementation, you would call an actual weather API here.
+    # url = f"https://wttr.in/{location}?format=j1"
+    # response = requests.get(url=url, timeout=10)
+    # response.raise_for_status()
+    # data = response.json()
+
+    # hard-coding because wttr.in is down
+    weather_data = {
+        "location": location,
+        "weather": "rainy, but rain will stop in 2 hours."}
+
+    return weather_data
+
+# Define the list of tools that the agent can use. This will be passed to the ToolNode in the graph.
+TOOLS = [get_user_memory, save_user_memory, get_weather, transfer_money]
+
+
+# =============================================
+# Guardrail Node for PII Detection
+# =============================================
+
+# PII Pattern Definitions
+patterns = {
+        "SSN": r'\b\d{3}-\d{2}-\d{4}\b',  # SSN: 123-45-6789
+        "Credit Card": r'\b\d{4}[\s-]?\d{4}[\s-]?\d{4}[\s-]?\d{4}\b',  # Credit Card: 1234-5678-9012-3456
+        "Mobile Number": r'\b(\+?\d{1,3}[-.\s]?)?\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}\b',  # Mobile: +1-234-567-8900
+        "Email": r'\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b',  # Email: user@example.com
+        "URL/Link": r'https?://[^\s]+|www\.[^\s]+'  # URL: http://example.com or www.example.com
+    }
+
+def guardrail_node(state: AgentState):
+    last_message = state["messages"][-1].content
+
+    for pii_type, pii_pattern in patterns.items():
+        if re.search(pattern=pii_pattern, string=last_message):
+            print(f"PII detected. Type {pii_type}")
+            # Will be connected to the END node and share with user
+            return {
+                "messages": [SystemMessage(content=f"Request Blocked: Contains {pii_type}.\nPlease Do not share sensitive personal information to the agent")],
+                "is_sensitive": True
+            }
+    else:
+        return {
+            "is_sensitive": False,
+        }
+
+
+# =============================================
+# Agent Node with Long-Term and Short-Term Memory
+# =============================================
+def agent_node(state: AgentState):
+    # Bind tools to the LLM, so that it can call tools during generation.
+    llm_with_tools = llm.bind_tools(tools=TOOLS)
+
+    user_id = state.get("user_id", "unknown")
+    namespace = (user_id, "preference")
+
+    last_message = state["messages"][-1].content
+    memories = store.search(namespace, query=last_message, limit=3)
+
+    # build context memory for personalized answer
+    context_line = []
+    for mem in memories:
+        text = f" - {mem.key}: {mem.value}"
+        context_line.append(text)
+    memory_text = "\n\n".join(context_line) if context_line else "No user preference found in the store yet."
+    print(f"User memory retrieved: {memory_text}")
+
+    SYSTEM_PROMPT = f"""
+                    You are a helpful assistant with long-term memory capabilities and access to utility tools.
+
+                        User ID: {user_id}
+                        Current User Memories:
+                        {memory_text}
+
+                        MEMORY TOOLS USAGE:
+
+                        1. save_user_memory: Use when user shares NEW information
+                        - Always pass user_id: "{user_id}"
+                        - Food preferences (diet, likes, dislikes, allergies)
+                        - Work information (role, company, interests)
+                        - Hobbies and activities
+                        - Schedule and availability
+                        - Location and timezone
+
+                        2. get_user_memory: Use when you need to recall specific category
+                        - Always pass user_id: "{user_id}"
+                        - When answering questions about past preferences
+                        - When user asks "what do you know about me?"
+                        - When making recommendations based on preferences
+
+                        UTILITY TOOLS USAGE:
+                        3. get_weather: Use to retrieve current weather information
+                        - Pass location as parameter (city name, zip code, or coordinates)
+                        - Use when user asks about weather conditions
+                        - Use when planning activities that depend on weather
+                        - Examples: "What's the weather in London?", "Will it rain today?"
+
+                        4. transfer_money: Use to transfer money. Large transfers over $1000 require approval.
+                        - Pass amount and recipient as parameters
+                        - Use when user asks to transfer money
+                        - Examples: "Send $1500 to Bob"
+
+                        GUIDELINES:
+                        - Always save when user shares personal information
+                        - Retrieve specific categories when needed for context
+                        - Use semantic search results shown above for general context
+                        - Use get_weather when location-based weather info is needed
+                        - Use calculate for any mathematical operations or conversions
+                        - Be conversational and natural when using all tools
+                        - Combine tools when appropriate (e.g., weather + saved location preference)
+                    """
+
+    system_message = SystemMessage(SYSTEM_PROMPT)
+    messages = [system_message] + state["messages"]
+    response = llm_with_tools.invoke(messages)
+
+    # AIMessages will contain tool_calls attributes during tool call turn
+    if hasattr(response, "tool_calls") and response.tool_calls:
+        for tc in response.tool_calls:
+            print(f"This agent called tool: {tc.get('name', '?')} with args: {tc.get('args', '?')}")
+    else:
+        print(f"[AGENT] generating responses...")
+
+    # The value of messages should be list, because of operator.add
+    return {"messages": [response]}
+
+# =============================================
+# Conditional Edge
+# =============================================
+
+# Guardrail, agent
+def guardrail_router(state: AgentState):
+    is_sensitive = state["is_sensitive"]
+
+    if is_sensitive:
+        return END
+    else:
+        return "agent"
+
+# Define the routing function
+def should_continue(state:AgentState):
+    last_message = state["messages"][-1]
+
+    if hasattr(last_message, "tool_calls") and last_message.tool_calls:
+        return "tools"      # This key should be the same with tool node
+    else:
+        return END
+
+# =============================================
+# Graph
+# =============================================
+
+# Build the agent graph
+def create_agent(checkpointer):
+    # Get graph canvas
+    # The canvas should accept state schema, instead of state instance
+    builder = StateGraph(state_schema=AgentState)
+
+    builder.add_node("guardrail", guardrail_node)
+    builder.add_node("agent", agent_node)
+    builder.add_node("tools", ToolNode(tools=TOOLS)) # Should be the same with that in routing
+
+    builder.add_edge(START, "guardrail")
+    builder.add_conditional_edges(source="guardrail", path=guardrail_router, path_map=["agent", END])
+    builder.add_conditional_edges(source="agent", path=should_continue, path_map=["tools", END])
+    builder.add_edge("tools", "agent")  # Do not forget to connect tool node back to agent
+
+    graph = builder.compile(checkpointer=checkpointer)
+
+    return graph
+
+# Define chat function to interact with the agent
+def chat(agent, query, user_id, thread_id) -> AgentState:
+    initial_state = AgentState(
+        messages=[HumanMessage(query)],
+        user_id=user_id
+        )
+
+    # Configure thread id
+    config = {"configurable" :{"thread_id": thread_id}}
+
+    response = agent.invoke(initial_state, config=config)
+    return response
+
+
+# =============================================
+# Main Loop for Chatting with the Agent
+# =============================================
+
+# Create the agent and chat with it
+user_id = "demo-user-001"
+thread_id = "agent-with-memory-HITL-001"
+agent = create_agent(checkpointer=checkpointer)
+
+
+# main loop for chatting with the agent
+if __name__ == "__main__":
+    while True:
+        query = input("Enter your query (or '/exit' to quit): ")
+        if query.lower() == "/exit":
+            break
+        response = chat(agent, query, user_id, thread_id)
+        if "__interrupt__" in response:
+            print(f"Approval required: {response["__interrupt__"][0].value}")
+            approval = input("Do you approve this move (enter 'approve' or 'disapprove'): ")
+            execution = agent.invoke(input=Command(resume={"decision": approval}), config={"configurable" :{"thread_id": thread_id}})
+            execution["messages"][-1].pretty_print()
+        else:
+            response["messages"][-1].pretty_print()
+```
+
+###### Tests
+
+4 rounds of tests are executed below:
+
+- PII Test, sensitive infos like `example@email.com` is detected
+- Small money transfer: no approval is needed before money transfer
+- Larger money transfer: approval is asked, and transfer is executed after getting approval
+- Summary (Memory Test): the agent successfully summarizes the money transfers so far.
+
+Round 1:
+
+> Enter your query (or '/exit' to quit): Transfer 500 to example@email.com
+> PII detected. Type Email
+> ================================ System Message ================================
+>
+> Request Blocked: Contains Email.
+> Please Do not share sensitive personal information to the agent
+
+Round 2:
+
+> Enter your query (or '/exit' to quit): Can you transfer 100 to Alice
+> User memory retrieved: No user preference found in the store yet.
+> This agent called tool: transfer_money with args: {'amount': 100, 'recipient': 'Alice'}
+> User memory retrieved: No user preference found in the store yet.
+> [AGENT] generating responses...
+> ================================== Ai Message ==================================
+>
+> Transfer of $100 to Alice was successful. Let me know if you need anything else!
+
+Round 3:
+
+> Enter your query (or '/exit' to quit): Give Bob 1500 by bank transfer.
+> User memory retrieved: No user preference found in the store yet.
+> This agent called tool: transfer_money with args: {'amount': 1500, 'recipient': 'Bob'}
+> Approval required: {'type': 'approval_required', 'amount': 1500, 'recipient': 'Bob'}
+> Do you approve this move (enter 'approve' or 'disapprove'): approve
+> User memory retrieved: No user preference found in the store yet.
+> [AGENT] generating responses...
+> ================================== Ai Message ==================================
+>
+> Transfer of $1500 to Bob was successful. Let me know if you need anything else!
+
+Round 4:
+
+> Enter your query (or '/exit' to quit): Hi, can you summarize the money transfer you have done so far?
+> User memory retrieved: No user preference found in the store yet.
+> [AGENT] generating responses...
+> ================================== Ai Message ==================================
+>
+> Here's a summary of the transfers I've processed for you:
+>
+> 1. **$100** transferred to Alice
+> 2. **$1500** transferred to Bob
+>
+> Total amount transferred: **$1600**.  
+> Let me know if you need further assistance! 😊
+> Enter your query (or '/exit' to quit): /exit
+
+## Section 11: Reflection Agent
