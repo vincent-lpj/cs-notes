@@ -2157,7 +2157,7 @@ from langchain_ollama import ChatOllama, OllamaEmbeddings
 from langgraph.graph import StateGraph, START, END
 from langgraph.prebuilt import ToolNode
 from langchain_core.tools import tool
-from langchain_core.messages import SystemMessage, HumanMessage
+from langchain_core.messages import SystemMessage, AIMessage, HumanMessage
 
 from langgraph.types import Command, interrupt
 
@@ -2213,8 +2213,6 @@ def setup_memory(postgres_conninfo: str):
     return checkpointer, store
 
 checkpointer, store = setup_memory(POSTGRES_CONNINFO)
-
-
 
 # =============================================
 # Transfer Money Tool
@@ -2343,7 +2341,7 @@ def guardrail_node(state: AgentState):
             print(f"PII detected. Type {pii_type}")
             # Will be connected to the END node and share with user
             return {
-                "messages": [SystemMessage(content=f"Request Blocked: Contains {pii_type}.\nPlease Do not share sensitive personal information to the agent")],
+                "messages": [AIMessage(content=f"Request Blocked: Contains {pii_type}.\nPlease Do not share sensitive personal information to the agent")],
                 "is_sensitive": True
             }
     else:
@@ -2371,7 +2369,6 @@ def agent_node(state: AgentState):
         text = f" - {mem.key}: {mem.value}"
         context_line.append(text)
     memory_text = "\n\n".join(context_line) if context_line else "No user preference found in the store yet."
-    print(f"User memory retrieved: {memory_text}")
 
     SYSTEM_PROMPT = f"""
                     You are a helpful assistant with long-term memory capabilities and access to utility tools.
@@ -2509,7 +2506,8 @@ if __name__ == "__main__":
             break
         response = chat(agent, query, user_id, thread_id)
         if "__interrupt__" in response:
-            print(f"Approval required: {response["__interrupt__"][0].value}")
+            approval_info = response["__interrupt__"][0].value
+            print(f"Approval required: You are sending {approval_info.get('amount', 'unknown')} to {approval_info.get('recipient', 'unknown')}.")
             approval = input("Do you approve this move (enter 'approve' or 'disapprove'): ")
             execution = agent.invoke(input=Command(resume={"decision": approval}), config={"configurable" :{"thread_id": thread_id}})
             execution["messages"][-1].pretty_print()
