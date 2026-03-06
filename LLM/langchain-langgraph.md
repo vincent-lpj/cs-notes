@@ -2574,3 +2574,135 @@ Round 4:
 > Enter your query (or '/exit' to quit): /exit
 
 ## Section 11: Reflection Agent
+
+## Section 13: Build LangGraph Agent with Airbnb MCP Servers
+
+Anthropic: [Introducing the Model Context Protocol](https://www.anthropic.com/news/model-context-protocol)
+
+MCP: [Model Context Protocol](https://modelcontextprotocol.io/docs/getting-started/intro)
+
+MCP Servers: [GitHub Pages](https://github.com/modelcontextprotocol/servers)
+
+Airbnb MCP Server: [HomePage](https://github.com/openbnb-org/mcp-server-airbnb)
+
+MCP (Model Context Protocol) is an open-source standard for connecting AI applications to external systems.
+
+#### 118. Introduction to MCP
+
+MCP is introduced by Anthropic on 25th November 2024.
+
+We use MCP to enable our agent to connect with the tools and resources.
+
+MCP contains:
+
+- MCP Host
+  - Claude Desktop, IDE, or AI Framework
+- MCP Client
+  -
+- MCP Server
+  - Remote or Local
+  - `stdio` or `sse/streamable http`
+  - Tools, Resources and Prompts
+
+#### 119. Install Node.js for MCP and LangChain MCP Adapter
+
+###### Basic Setups
+
+`node.js` here is required to use Airbnb's MCP server.
+
+```bash
+node --version
+# v25.2.1
+```
+
+#### 120. Connect LangChain MCP Client with Airbnb MCP Server
+
+LangChain Docs: [Model Context Protocol (MCP)](https://docs.langchain.com/oss/python/langchain/mcp)
+
+LangChain MCP Adapters: [GitHub](https://github.com/langchain-ai/langchain-mcp-adapters)
+
+###### Library Installation
+
+```bash
+uv add langchain-mcp-adapters
+```
+
+- Establish connection to MCP server using `MultiServerClient`
+- Acquire a full list of tools using `client.list_tools`
+
+```python
+from langchain_mcp_adapters.client import MultiServerMCPClient
+import asyncio
+
+async def get_tools():
+    mcp_client = MultiServerMCPClient(
+        connections={
+            "airbnb": {
+                "command": "npx",
+                "args": [
+                    "-y",
+                    "@openbnb/mcp-server-airbnb"
+                    ],
+                "transport": "stdio"
+                },
+        }
+    )
+
+    tools = await mcp_client.get_tools()
+    print(f"{len(tools)} tools loaded from Airbnb MCP servers.")
+    print(f"Loaded tools: {tools}")
+    return tools
+```
+
+> [2026-03-05] [INFO] Airbnb MCP Server starting: {
+> "version": "0.1.3",
+> "ignoreRobotsTxt": false,
+> "nodeVersion": "v25.2.1",
+> "platform": "darwin"
+> }
+> [2026-03-05] [INFO] Fetching robots.txt from Airbnb
+> [2026-03-05] [INFO] Successfully fetched robots.txt
+> [2026-03-05] [INFO] Airbnb MCP Server running on stdio: {
+> "version": "0.1.3",
+> "robotsRespected": true
+> }
+> 2 tools loaded from Airbnb MCP servers.
+> Loaded tools:
+>
+> [StructuredTool(name='airbnb_search', description='Search for Airbnb listings with various filters and pagination. Provide direct links to the user', args_schema={'type': 'object', 'properties': {'location': {'type': 'string', 'description': 'Location to search for (city, state, etc.)'}, 'placeId': {'type': 'string', 'description': 'Google Maps Place ID (overrides the location parameter)'}, 'checkin': {'type': 'string', 'description': 'Check-in date (YYYY-MM-DD)'}, 'checkout': {'type': 'string', 'description': 'Check-out date (YYYY-MM-DD)'}, 'adults': {'type': 'number', 'description': 'Number of adults'}, 'children': {'type': 'number', 'description': 'Number of children'}, 'infants': {'type': 'number', 'description': 'Number of infants'}, 'pets': {'type': 'number', 'description': 'Number of pets'}, 'minPrice': {'type': 'number', 'description': 'Minimum price for the stay'}, 'maxPrice': {'type': 'number', 'description': 'Maximum price for the stay'}, 'cursor': {'type': 'string', 'description': 'Base64-encoded string used for Pagination'}, 'ignoreRobotsText': {'type': 'boolean', 'description': 'Ignore robots.txt rules for this request'}}, 'required': ['location']}, response_format='content_and_artifact', coroutine=<function convert_mcp_tool_to_langchain_tool.xx),
+>
+> StructuredTool(name='airbnb_listing_details', description='Get detailed information about a specific Airbnb listing. Provide direct links to the user', args_schema={'type': 'object', 'properties': {'id': {'type': 'string', 'description': 'The Airbnb listing ID'}, 'checkin': {'type': 'string', 'description': 'Check-in date (YYYY-MM-DD)'}, 'checkout': {'type': 'string', 'description': 'Check-out date (YYYY-MM-DD)'}, 'adults': {'type': 'number', 'description': 'Number of adults'}, 'children': {'type': 'number', 'description': 'Number of children'}, 'infants': {'type': 'number', 'description': 'Number of infants'}, 'pets': {'type': 'number', 'description': 'Number of pets'}, 'ignoreRobotsText': {'type': 'boolean', 'description': 'Ignore robots.txt rules for this request'}}, 'required': ['id']}, response_format='content_and_artifact', coroutine=<function convert_mcp_tool_to_langchain_tool.xx)]
+
+#### 121. Create LangGraph Agent with Airbnb MCP Server Tools
+
+Because tools are accquired asynchronously, we should define our agent using `async` keyword.
+
+```python
+async def agent_node(state: AgentState):
+    TOOLS = await get_tools()
+    llm_with_tools = llm.bind_tools(tools=TOOLS)
+
+    response = llm_with_tools.invoke(state["messages"])
+
+    return {"messages": [response]}
+```
+
+> Enter your query (or '/exit' to quit): Help me to find best hotels in London. I would like to check in at 23rd March, 2026 and only stay for 2 nights. Two peoples only, both are adult. I would like to book a slightly higer priced room.
+>
+> This agent called tool: airbnb_search with args: {'adults': 2, 'checkin': '2026-03-23', 'checkout': '2026-03-25', 'location': 'London, UK', 'maxPrice': 1000, 'minPrice': 300}
+>
+> [AGENT] generating responses...
+> ================================== Ai Message ==================================
+>
+> It seems there are no available listings for your specified dates and location. Here are a few suggestions:
+>
+> 1. **Check Dates**: Ensure the check-in/check-out dates are correct. Sometimes future dates may have limited availability.
+> 2. **Broaden Location**: Try a more general location like "London, UK" or specific areas like "Central London."
+> 3. **Adjust Price Range**: If "slightly higher priced" is flexible, try widening the price range or checking nearby areas.
+> 4. **Alternative Booking Platforms**: Consider platforms like Booking.com or Expedia for additional options.
+>
+> Would you like to refine your search further?
+
+#### 123. Performance Testing of Airbnb MCP Server with LangChain MCP Client in Jupyter
+
+(Skipped)
