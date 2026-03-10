@@ -1,8 +1,58 @@
+## Agent Skills vs. MCP
+
+Youtube: [Agent Skills vs MCP: What’s the difference?](https://www.youtube.com/watch?v=6wdvSH61xGw)
+
+Generally, AI is getting smarter and smarter, in not only [GPQA](https://github.com/idavidrein/gpqa), but in [SWE-bench](https://www.swebench.com/).
+
+#### MCP (Model Context Protocol)
+
+This is a universal way to give LLMs tools and context. "USB-C Port for AI Application"
+
+The idea is to connect any AI app to any tools, like tools to manipulate notes on notion, etc.
+
+Without MCP, service providers will provide an integration for every distinct AI apps.
+
+It uses `client-server` architecture, where MCP client send requests to MCP server and get responses.
+
+However, the action of MCP is `token-heavy`, because AI needs a large amount of context to let it know which tool is available and how t can manage those tools.
+
+#### Agents Skills
+
+###### Overview of Skills
+
+Basically, it is a folder with instructions accessed by agent as needed.
+
+```
+skill-name/
+┗ SKILL.md
+```
+
+A skill consists two parts:
+
+- `frontmatter`: loaded at startup
+  - `name`
+  - `description`
+- `Body`: Loaded if agent calls skill
+
+###### Progressive Disclosure
+
+Claude API Docs: [Progressive disclosure patterns](https://platform.claude.com/docs/en/agents-and-tools/agent-skills/best-practices#progressive-disclosure-patterns)
+
+|         | Content                               | Enters Context Window...     | Tokens   |
+| ------- | ------------------------------------- | ---------------------------- | -------- |
+| Level 1 | SKILL.md and metadata                 | On start up                  | ~100     |
+| Level 2 | SKILL.md body                         | When agent invokes the skill | <5k      |
+| Level 3 | Files and folders in skills directory | As needed by agent           | No limit |
+
+## OpenCode vs. Claude Code
+
+#### References
+
 OpenCode Tutorial for Beginners: [Learn 90% Of OpenCode in Under 25 Minutes](https://www.youtube.com/watch?v=QzqaZshQcJI)
 
 [Open Code](https://opencode.ai/)
 
-#### OpenCode vs. Claude Code
+#### Comparison
 
 OpenCode is a terminal-first coding agent (TUI/CLI/Web/Desktop).
 
@@ -27,8 +77,6 @@ OpenCode recommends WSL for best performance + terminal compstibility.
 ```bash
 curl -fsSL https://opencode.ai/install | bash
 ```
-
-####
 
 #### Overview of OpenCode
 
@@ -124,5 +172,3 @@ model: anthropic/claude-3-5-sonnet-20241022
 Run the full test suite with coverage.
 Focus on failing tests and suggest fixes.
 ```
-
-######
