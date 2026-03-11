@@ -32,6 +32,192 @@ Transformer: [the model-definition framework](https://github.com/huggingface/tra
 
 PyTorch: [Tensors and Dynamic neural networks](https://github.com/huggingface/transformers?tab=readme-ov-file)
 
+## Fine-Tuning LLMs
+
+Youtube: [EASIEST Way to Fine-Tune a LLM and Use It With Ollama](https://www.youtube.com/watch?v=pTaSDVz0gok)
+
+#### What Fine-Tuning Is?
+
+Fine-Tuning is taking a **pre-trained** language model and **teaching** it to perform better at a specific task.
+
+Instead of training a model from zero, you take a model that already knows human language. Then, you feed them with examples about real use cases.
+
+It is different than parameter tuning, which adjust setting like temperature or `Top_K` to change how the model performs.
+
+###### Three Main Scenarios
+
+- When you need consistent formatting or style and prompting can not achieve
+- When you have a lot of domain specific data, the model have not seen before
+  - Like medical records, etc.
+- When you want to reduce costs by using a relatively small model
+
+#### Goal
+
+###### Prerequisites
+
+Unsloth: [Fine-tuning & Reinforcement Learning for LLMs](https://github.com/unslothai/unsloth)
+
+Unsloth: [Fine-tuning LLMs Guide](https://unsloth.ai/docs/get-started/fine-tuning-llms-guide)
+
+###### What Should We Do Next?
+
+In this tutorial, we will fine-tune a model and teach it to generate a specific format from HTML inputs.
+
+For this tutorial, [unsloth](https://unsloth.ai/) will adopted to do our fine-tuning.
+
+#### Step 1: Gathering Data
+
+The first step you need to fine-tune a model, is always gathering data.
+
+A small dataset that demostrates a **HTML Extraction** will be used in this tutorial. Basically, we will give LLM `Expected Prompt` and `Expected Output` and let it learn from this.
+
+###### Examinition of Data
+
+It is expected that fine-tuned LLM will take HTML formatted string input, and give a nicely formatted output (JSON format).
+
+LLM will be trained on about 500 pairs of inputs and outputs.
+
+```json
+  {
+    "input": "Extract the product information:\n<div class='product'><h2>Asus ROG Strix</h2><span class='price'>$1106</span><span class='category'>electronics</span><span class='brand'>Amazon</span></div>",
+    "output": {
+      "name": "Asus ROG Strix",
+      "price": "$1106",
+      "category": "electronics",
+      "manufacturer": "Amazon"
+    }
+  },
+```
+
+#### Step 2: Google Colab Setup
+
+###### What Is Google Colab
+
+Using Google Colab has many merits:
+
+- Free online code editor by Google
+- Access to high-end GPUs for model traning
+- Train model in Google Colab
+- Download trained models to your computer
+- Run models locally using Ollama
+
+###### GPU Usage in Google Colab
+
+Of course, we can fine-tune the LLM in our own computer, as well as Google Colab.
+
+In Google Colab, we can change the configuration of `Runtime Type`, such as Python 3, and `Hardware Accelerator`, such as T4 GPU, etc.
+
+To use `CUDA`, we need to have CUDA installed in our system, and own a Nvidia GPU to make it work.
+
+However, with Google Colab, we can simply use `CUDA` without extra configuration.
+
+```python
+# For GPU check
+import torch
+print(f"CUDA available: {torch.cuda.is_available()}")
+print(f"GPU: {torch.cuda.get_device_name(0) if torch.cuda.is_available() else 'None'}")
+```
+
+As expected, a T4 GPU is loaded with available CUDA.
+
+> CUDA available: True GPU: Tesla T4
+
+###### Examination of Data and Configs
+
+Firstly, the dataset prepared in JSON are loaded as below:
+
+```python
+import json
+
+file = json.load(open("json_extraction_dataset_500.json", "r"))
+print(file[1])
+```
+
+> {'input': "Extract the product information:\n<div class='product'><h2>iPad Air</h2><span class='price'>$1344</span><span class='category'>audio</span><span class='brand'>Dell</span></div>", 'output': {'name': 'iPad Air', 'price': '$1344', 'category': 'audio', 'manufacturer': 'Dell'}}
+
+#### Step 3: Fine-Tuning with Unsloth
+
+Unsloth: [Phi-3 Support](https://unsloth.ai/blog/phi3)
+
+Unsloth: [LoRA Fine-tuning Hyperparameters Guide](https://unsloth.ai/docs/get-started/fine-tuning-llms-guide/lora-hyperparameters-guide)
+
+###### Install Necessary Libraries
+
+```bash
+!pip uninstall -y unsloth peft
+
+!pip install unsloth trl peft accelerate bitsandbytes
+```
+
+###### Load Model and Tokenizer
+
+In this section, we need to decide which model to pick.
+
+Here, we choose P[hi-3-mini-4k-instruct-bnb-4bit](https://huggingface.co/unsloth/Phi-3-mini-4k-instruct-bnb-4bit) on purpose, because of its relatively small size.
+
+See: [Unsloth Model Catelog](https://unsloth.ai/docs/get-started/unsloth-model-catalog#phi-models)
+
+```python
+from unsloth import FastLanguageModel
+import torch
+
+model_name = "unsloth/Phi-3-mini-4k-instruct-bnb-4bit"
+
+max_seq_length = 2048  # Choose sequence length
+dtype = None  # Auto detection
+
+# Load model and tokenizer
+model, tokenizer = FastLanguageModel.from_pretrained(
+    model_name=model_name,
+    max_seq_length=max_seq_length,
+    dtype=dtype,
+    load_in_4bit=True,
+)
+```
+
+###### Format Data
+
+```python
+from datasets import Dataset
+
+def format_prompt(example):
+    return f"### Input: {example['input']}\n### Output: {json.dumps(example['output'])}<|endoftext|>"
+
+formatted_data = [format_prompt(item) for item in file]
+dataset = Dataset.from_dict({"text": formatted_data})
+```
+
+###### Set Up the Trainer
+
+```python
+from trl import SFTTrainer
+from transformers import TraningArguments
+```
+
+###### Test the Fine-Tuned Model
+
+###### Download Model
+
+#### Step 4: Model Setup in Ollama
+
+Ollama: [Modelfile](https://docs.ollama.com/modelfile)
+
+###### Examination of Downloaded Model
+
+A `.gguf` file will be created after downloading in your computer.
+
+###### Run Fine-Tuned Model in Ollama
+
+```bash
+ollama create html-model -f Modelfile
+
+ollama run html-model
+```
+
+## Fine-Tuning Text Embedding Model
+
+Youtube: [Fine-Tuning Text Embeddings For Domain-specific Search (w/ Python)](https://www.youtube.com/watch?v=hOLBrIjRAj4)
+
 ## LLM Related Topics
 
 #### Thinking Models
