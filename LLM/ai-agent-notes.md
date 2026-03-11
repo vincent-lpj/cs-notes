@@ -44,6 +44,35 @@ Claude API Docs: [Progressive disclosure patterns](https://platform.claude.com/d
 | Level 2 | SKILL.md body                         | When agent invokes the skill | <5k      |
 | Level 3 | Files and folders in skills directory | As needed by agent           | No limit |
 
+#### MCP vs. Skills
+
+###### Similarities & Difference
+
+- MCP
+  - Give tools + context to LLMs
+  - Open standard (widely adopted)
+  - All tools schemas on start-up
+  - LLM needs MCP client + tool calling
+  - Custom server requires coding
+
+- Skills
+  - Gives context + code to agents
+  - Open standard (early days)
+  - Context and code loaded as needed
+  - LLM needs file tools + code interpreter
+  - Custom skills only need natural language
+
+###### Use Cases
+
+Use MCP to give agent access to specialized tools.
+
+- For example, connect claude to notion
+
+Use skills to teach agent how to use tools for specific tasks
+
+- For example, executing tasks using notion
+- You will tell your agent exactly how to use tools to achieve target goals.
+
 ## OpenCode vs. Claude Code
 
 #### References
