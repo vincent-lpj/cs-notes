@@ -153,7 +153,7 @@ Unsloth: [LoRA Fine-tuning Hyperparameters Guide](https://unsloth.ai/docs/get-st
 
 In this section, we need to decide which model to pick.
 
-Here, we choose P[hi-3-mini-4k-instruct-bnb-4bit](https://huggingface.co/unsloth/Phi-3-mini-4k-instruct-bnb-4bit) on purpose, because of its relatively small size.
+Here, we choose [Phi-3-mini-4k-instruct-bnb-4bit](https://huggingface.co/unsloth/Phi-3-mini-4k-instruct-bnb-4bit) on purpose, because of its relatively small size.
 
 See: [Unsloth Model Catelog](https://unsloth.ai/docs/get-started/unsloth-model-catalog#phi-models)
 
@@ -187,18 +187,172 @@ formatted_data = [format_prompt(item) for item in file]
 dataset = Dataset.from_dict({"text": formatted_data})
 ```
 
+###### Add LoRA Adapters
+
+```python
+# Add LoRA adapters
+model = FastLanguageModel.get_peft_model(
+    model,
+    r=64,  # LoRA rank - higher = more capacity, more memory
+    target_modules=[
+        "q_proj", "k_proj", "v_proj", "o_proj",
+        "gate_proj", "up_proj", "down_proj",
+    ],
+    lora_alpha=128,  # LoRA scaling factor (usually 2x rank)
+    lora_dropout=0,  # Supports any, but = 0 is optimized
+    bias="none",     # Supports any, but = "none" is optimized
+    use_gradient_checkpointing="unsloth",  # Unsloth's optimized version
+    random_state=3407,
+    use_rslora=False,  # Rank stabilized LoRA
+    loftq_config=None, # LoftQ
+)
+```
+
 ###### Set Up the Trainer
 
 ```python
 from trl import SFTTrainer
 from transformers import TraningArguments
+
+# Training arguments optimized for Unsloth
+trainer = SFTTrainer(
+    model=model,
+    tokenizer=tokenizer,
+    train_dataset=dataset,
+    dataset_text_field="text",
+    max_seq_length=max_seq_length,
+    dataset_num_proc=2,
+    args=TrainingArguments(
+        per_device_train_batch_size=2,
+        gradient_accumulation_steps=4,  # Effective batch size = 8
+        warmup_steps=10,
+        num_train_epochs=3,
+        learning_rate=2e-4,
+        fp16=not torch.cuda.is_bf16_supported(),
+        bf16=torch.cuda.is_bf16_supported(),
+        logging_steps=25,
+        optim="adamw_8bit",
+        weight_decay=0.01,
+        lr_scheduler_type="linear",
+        seed=3407,
+        output_dir="outputs",
+        save_strategy="epoch",
+        save_total_limit=2,
+        dataloader_pin_memory=False,
+    ),
+)
+```
+
+###### Train the Model
+
+A LLM can be trained by a single line of code in unsloth, as shown below.
+
+The training time depends on the training data size and configuration.
+
+```python
+# Train the model
+trainer_stats = trainer.train()
+```
+
+Results:
+
+```
+==((====))==  Unsloth - 2x faster free finetuning | Num GPUs used = 1
+   \\   /|    Num examples = 500 | Num Epochs = 3 | Total steps = 189
+O^O/ \_/ \    Batch size per device = 2 | Gradient accumulation steps = 4
+\        /    Data Parallel GPUs = 1 | Total batch size (2 x 4 x 1) = 8
+ "-____-"     Trainable parameters = 119,537,664 of 3,940,617,216 (3.03% trained)
 ```
 
 ###### Test the Fine-Tuned Model
 
+```python
+# Test the fine-tuned model
+FastLanguageModel.for_inference(model) # Enable native 2x faster inference
+
+# Test prompt
+messages = [
+    {"role": "user", "content": "Extract the product information:\n<div class='product'><h2>iPad Air</h2><span class='price'>$1344</span><span class='category'>audio</span><span class='brand'>Dell</span></div>"},
+]
+
+inputs = tokenizer.apply_chat_template(
+    messages,
+    tokenize=True,
+    add_generation_prompt=True,
+    return_tensors="pt",
+).to("cuda")
+
+# Generate response
+outputs = model.generate(
+    input_ids=inputs,
+    max_new_tokens=256,
+    use_cache=True,
+    temperature=0.7,
+    do_sample=True,
+    top_p=0.9,
+)
+
+# Decode and print
+response = tokenizer.batch_decode(outputs)[0]
+print(response)
+```
+
+Here, we can see that a pretty formatted answer is created by this fine-tuned LLM.
+
+> Message: 'The attention mask API under `transformers.modeling_attn_mask_utils` (`AttentionMaskConverter`) is deprecated and will be removed in Transformers v5.10. Please use the new API in `transformers.masking_utils`.' Arguments: (<class 'FutureWarning'>,) <|user|> Extract the product information: <div class='product'><h2>iPad Air</h2><span class='price'>$1344</span><span class='category'>audio</span><span class='brand'>Dell</span></div><|end|><|assistant|> {"name": "iPad Air", "price": "$1344", "category": "audio", "manufacturer": "Dell"}<|end|>
+
 ###### Download Model
 
+Google Colab can save the fine-tuned model in Google Drive, then, we can manually download it in our computer.
+
+```python
+model.save_pretrained_gguf("gguf_model", tokenizer, quantization_method="q4_k_m")
+
+gguf_files = [f for f in os.listdir("gguf_model") if f.endswith(".gguf")]
+if gguf_files:
+    gguf_file = os.path.join("gguf_model", gguf_files[0])
+    print(f"Downloading: {gguf_file}")
+    files.download(gguf_file)
+```
+
+```
+Unsloth: Merge process complete. Saved to `/content/gguf_model`
+Unsloth: Converting to GGUF format...
+==((====))==  Unsloth: Conversion from HF to GGUF information
+   \\   /|    [0] Installing llama.cpp might take 3 minutes.
+O^O/ \_/ \    [1] Converting HF to GGUF f16 might take 3 minutes.
+\        /    [2] Converting GGUF f16 to ['q4_k_m'] might take 10 minutes each.
+ "-____-"     In total, you will have to wait at least 16 minutes.
+
+Unsloth: Installing llama.cpp. This might take 3 minutes...
+Unsloth: Updating system package directories
+Unsloth: Cloning llama.cpp repository...
+Unsloth: Building llama.cpp - please wait 1 to 3 minutes
+Unsloth: Successfully installed llama.cpp!
+Unsloth: Preparing converter script...
+WARNING:unsloth_zoo.llama_cpp:Unsloth: Qwen2MoE num_experts patch target not found.
+Unsloth: [1] Converting model into f16 GGUF format.
+This might take 3 minutes...
+Unsloth: Initial conversion completed! Files: ['gguf_model_gguf/phi-3-mini-4k-instruct.F16.gguf']
+Unsloth: [2] Converting GGUF f16 into q4_k_m. This might take 10 minutes...
+Unsloth: Model files cleanup...
+Unsloth: All GGUF conversions completed successfully!
+Generated files: ['gguf_model_gguf/phi-3-mini-4k-instruct.Q4_K_M.gguf']
+Unsloth: example usage for text only LLMs: /root/.unsloth/llama.cpp/llama-cli --model gguf_model_gguf/phi-3-mini-4k-instruct.Q4_K_M.gguf -p "why is the sky blue?"
+Unsloth: Saved Ollama Modelfile to gguf_model_gguf/Modelfile
+Unsloth: convert model to ollama format by running - ollama create model_name -f gguf_model_gguf/Modelfile
+{'save_directory': 'gguf_model',
+ 'gguf_directory': 'gguf_model_gguf',
+ 'gguf_files': ['gguf_model_gguf/phi-3-mini-4k-instruct.Q4_K_M.gguf'],
+ 'modelfile_location': 'gguf_model_gguf/Modelfile',
+ 'want_full_precision': False,
+ 'is_vlm': False,
+ 'fix_bos_token': False}
+```
+
 #### Step 4: Model Setup in Ollama
+
+Ollama: [Importing a model](https://docs.ollama.com/import)
 
 Ollama: [Modelfile](https://docs.ollama.com/modelfile)
 
@@ -206,13 +360,42 @@ Ollama: [Modelfile](https://docs.ollama.com/modelfile)
 
 A `.gguf` file will be created after downloading in your computer.
 
+Before starting using this model, we should create a `Modelfile` in the same directory of our `.gguf` file.
+
+###### Create Modelfile
+
+A `Modelfile` defines a custom configuration of the model.
+
+```
+FROM ./unsloth.Q4_K_M.gguf
+
+PARAMETER temperature 0.7
+PARAMETER top_p 0.9
+PARAMETER stop "<|end_of_text|>"
+PARAMETER stop "<|user|>"
+
+TEMPLATE """<|user|>
+{{ .Prompt }}<|assistant|>
+"""
+
+SYSTEM """You are a helpful AI assistant"""
+```
+
 ###### Run Fine-Tuned Model in Ollama
+
+After creating Modelfile, we can simply add our fine-tuned model in one line, with `-f` option to identify which Modelfile (configuration) you would like to use.
 
 ```bash
 ollama create html-model -f Modelfile
 
 ollama run html-model
 ```
+
+Then, use the same prompt to test our model:
+
+> Prompt: Extract the product information:\n<div class='product'><h2>iPad Air</h2><span class='price'>$1344</span><span class='category'>audio</span><span class='brand'>Dell</span></div>
+>
+> Answer: {"name": "iPad Air", "price": "$1344", "category": "audio", "manufacturer": "Dell"}
 
 ## Fine-Tuning Text Embedding Model
 
