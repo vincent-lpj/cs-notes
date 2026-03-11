@@ -310,6 +310,32 @@ YouTube: [OpenAI's New Open Models - GPT-OSS 120B & 20B](https://www.youtube.com
 - Compatible with Response API
 - Like OpenAI o-series, supports three reasoning efforts - low, medium and high
 
+#### Phi-4
+
+Hugging Face: [Phi-4](https://huggingface.co/microsoft/phi-4)
+
+Ollama Library: [phi4](https://ollama.com/library/phi4)
+
+Microsoft: [Introducing Phi-4: Microsoft’s Newest Small Language Model Specializing in Complex Reasoning](https://techcommunity.microsoft.com/blog/azure-ai-foundry-blog/introducing-phi-4-microsoft%E2%80%99s-newest-small-language-model-specializing-in-comple/4357090)
+
+Microsoft: [Welcome to the new Phi-4 models - Microsoft Phi-4-mini & Phi-4-multimodal](https://techcommunity.microsoft.com/blog/educatordeveloperblog/welcome-to-the-new-phi-4-models---microsoft-phi-4-mini--phi-4-multimodal/4386037)
+
+YouTube: [Unlock Open Multimodality with Phi-4](https://www.youtube.com/watch?v=qAgAQQ41P3A)
+
+###### Phi-4 Mini
+
+It is noticeable that `phi-4 mini` have the ability of function calling.
+
+So, it means that we can have **local model** for doing function calling at a relatively small size.
+
+The [phi-4-mini-instruct](https://huggingface.co/microsoft/Phi-4-mini-instruct) model is 3.8 billion parameters.
+
+###### Phi-4-multimodal-instruct
+
+Hugging Face: [Phi 4 Multimodal Instruct](https://huggingface.co/microsoft/Phi-4-multimodal-instruct)
+
+In contrast to [phi-3.5-vision-instruct](https://huggingface.co/microsoft/Phi-3.5-vision-instruct), Phi-4-multimodal is actually a full multimodal model. Not only `vision encoder`, but also an `audio encoder` are included in this model.
+
 #### DeepSeek OCR
 
 Official Website: [DeepSeek OCR](https://deepseek-ocr.io/)
