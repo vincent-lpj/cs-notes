@@ -401,6 +401,92 @@ Then, use the same prompt to test our model:
 
 Youtube: [Fine-Tuning Text Embeddings For Domain-specific Search (w/ Python)](https://www.youtube.com/watch?v=hOLBrIjRAj4)
 
+#### Overview
+
+`Embedding models` represent text as **semantic meaningful vectors**.
+
+However, general embedding models can have poor performance on domain-specific texts.
+
+This problem are supposed to be overcome by fine-tuning.
+
+Text embedding becomes more popular in these days with the widespread usage of RAG (Retrieval Augumented Generation).
+
+The core concept of RAG is to improve llm based systems by retrieving relevant content when prompt is provided.
+
+#### The Problem in RAG
+
+###### RAG: Flows
+
+Typical RAG are executed as follows:
+
+1. User raise a query
+2. Context retrieval
+   - In stead of give the query directly to LLM, context (relevant information) are combined and feeded to LLM to generate response
+   - A `vector database` is expected, in which chunks of knowledge (PDFs, etc) are represented as semantic meaningful vectors
+   - When query comes in, it is embeded and do `similarity search`, in order to find relevant knowledge.
+
+###### Similar Contents vs. Helpful Info
+
+However, this kind of context retrieval has one **key problem**: `Similarity does not mean helpful.`
+
+For example:
+
+> Query: How do I update my payment method?
+>
+> Results (similarity search): "To view your payment history, visit the Billing section of your account", "Payment can be made by debit card, and mobile payments."
+
+In the example above, results are semantically similar to user's query, however, they are not answering this query.
+
+Futher, a single phrase can have different meanings in domain-specific scenarios.
+
+> Query 1: What is RAG?
+>
+> Query 2: What is fine-tuning?
+
+- In comment classifier, the vector representing these two query should be **similar**, to categorize these two queries together.
+- In (AI-related) FAQ search, they should be **dissimilar**, because fine-tuning is not helpful for users who would like to know about RAG
+- In PM Doc Search, RAG is not standing for retrieval augmented generation, but for red amber and green, the vectors should be **dissimilar** and have more distance than AI related areas.
+
+To solve this problem, we can overcome this by fine-tuning our model for a specific use case.
+
+#### Fine-tuning Embeddings
+
+The basic idea of `fine-tuning` is to adapt a model to a paticular usecase through addition training.
+
+Firstly, we need a `Base model`, and refine this model.
+
+###### 5 Steps for Fine-tuning Embeddings
+
+1. Gather positive (and negative) pairs
+2. Pick a pre-trained model
+3. Pick a loss function
+4. Fine-tune the model
+5. Evaluate the model
+
+#### Example: Fine-tuning Embeddings on AI Jobs
+
+###### Step 1: Gather Positive-negative Pairs
+
+Dataset: [ai-job-embedding-finetuning](https://huggingface.co/datasets/shawhin/ai-job-embedding-finetuning)
+
+| Query                                                                   | Positive Match                                                                                                            | Negative Match                                                                                                                                             |
+| ----------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| "Data pipeline management, advanced SQL techniques, ETL/ELT processes." | Make your impact within a rapidly growing Fintech Company. Build and mange robust data pipelines that support scalable... | Collaborate to design and implement end-to-end AI and data science lifecycle, from data collection and preprocessing to model deployment and monitoring... |
+
+###### Step 2: Pick a Pre-trained Model
+
+To pick the model, a sentence transformer library, [SBERT.net](https://sbert.net/), is used in our example.
+
+`sentence-transformers/all-distilroberta-v1` is selected in our example.
+
+###### Step 3: Pick a Loss Function
+
+In our example, data is structured similiar to `(anchor, positive, negative) triplets`, so loss function of `MultipleNegativesRankingLoss` is selected.
+
+###### Step 4: Fine-Tune Model
+
+###### Step 5: Evaluate the Model
+
 ## LLM Related Topics
 
 #### Thinking Models
