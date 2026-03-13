@@ -548,6 +548,33 @@ Train the model with the output of a chain of thought that leads to the correct 
 
 (To be added)
 
+## Open Source Models
+
+#### OlmOCR
+
+Home Page: [olmOCR 2](https://olmocr.allenai.org/)
+
+Ai2 : [Main Page](https://allenai.org/)
+
+Hugging Face: [olmOCR-7B-0225-preview](https://huggingface.co/allenai/olmOCR-7B-0225-preview)
+
+Youtube: [olmOCR - The Open OCR System](https://www.youtube.com/watch?v=38loqDtlLok&t=65s)
+
+Allen AI is trying to make things in LLM more open.
+
+They not only release the models that are open-weights, but also probably the only group that doing open-source.
+
+The problem they would like to address is that when you train your LLM, **high-quality** data is essential to you.
+
+Plain text is the only way to get into your training process, however, there are a huge amount of high-quality data that are stored in PDF.
+
+###### What Should We Know about OlmOCR?
+
+- olmOCR is built on top of [Qwen2-VL-7B-Instruct](https://huggingface.co/Qwen/Qwen2-VL-7B-Instruct).
+  - The fine-tuning code is relase at [train.py](https://github.com/allenai/olmocr/blob/main/olmocr/train/train.py)
+- It can hanlde hand-writting
+- Support **markdown** output, so it can handle equations, etc.
+
 ## Open Weight Models
 
 #### Mistral Small 3
@@ -556,7 +583,17 @@ Mistral: [Mistral Small 3](https://mistral.ai/news/mistral-small-3)
 
 Ollama Library: [mistral-small](https://ollama.com/library/mistral-small)
 
+Hugging Face: [Mistral Small 24B Base](https://huggingface.co/mistralai/Mistral-Small-24B-Base-2501)
+
 Youtube: [Mistral Small 3 - The NEW Mini Model Killer](https://www.youtube.com/watch?v=nCXTdcggwkM)
+
+Open-source actually advance things, just like the release of DeepSeek-R1, because people are able to get access to them, learn from them, and fine-tune them.
+
+Likely, Mistral Small 3 was released in Apache 2.0 license, with its Base and Instruct version. It means that users can easily fine-tune them and deploy them wherever they would like.
+
+- **24B** parameters
+- Aiming at replacing models like Llama 3.3 70B, Qwen 32B, and GPT40-mini
+- **Agentic-features**: function calling, JSON outputs, etc.
 
 #### GPT-OSS
 
@@ -652,6 +689,28 @@ It introduces Contexts Optimal Compression, so that we can use vision to compres
 - New form of memory
   - e.g. Conversation History -> vision tokens
 
+## Proprietary Model
+
+#### Gemini Embedding 2
+
+Google: [Gemini Embedding 2: Our first natively multimodal embedding model](https://blog.google/innovation-and-ai/models-and-research/gemini-models/gemini-embedding-2/)
+
+Google Cloud: [Gemini Embedding 2](https://docs.cloud.google.com/vertex-ai/generative-ai/docs/models/gemini/embedding-2)
+
+###### Overview
+
+In previous embedding models, when dealing with inputs in various formats (text, image, audio, video, pdf, etc. ) it is usually ended up to using **multiple vector stores** with different embedding models.
+
+As a result, the searching system would become sophisticated and slow.
+
+`Gemini Embedding 2` is the first natively multimodal embedding model, which not only cover text and images, but also videos (up to 2 minitutes) and audios, and embed them **without** convert their format.
+
+Basically, Gemini Embedding 2 model allows us to represents text, video, audio and pdf in **UNIFIED** embedding spaces, as a vector (a list of number)
+
+- Gemini Embedding 2 captures the **semantic** meaning of a piece of content
+- For example, a text ("A cat on a mat"), an image (Photo of cat), and a piece of audio (something saying cat) will be in roughly the same location of embedding space
+- Then, when we do similarity search, there is no need to use one model for one modality, instead, we can have any input and retrieve output in different format
+
 #### Claude Sonnet 4.6
 
 Youtube: [Claude Sonnet 4.6 Is Insane, But Here's The Truth Nobody's Telling You.](https://www.youtube.com/watch?v=DyoKuKYEv_U)
@@ -661,12 +720,12 @@ Anthropic: [Introducing Claude Sonnet 4.6](https://www.anthropic.com/news/claude
 ###### What Sonnet 4.6 Actually Is?
 
 - Anthropic's second major model (after Opus), but cost less
-- 1 million token context window
+- **1 million token** context window
 - The free version of Claude now runs on this model.
 - Dropped with ChatGPT Codex 5.3 at the same day
 
 #### Opus 4.6
 
-Youtube: [GPT-5.3-Codex and Opus 4.6 in 6 min..]()
+Youtube: [GPT-5.3-Codex and Opus 4.6 in 6 min..](https://www.youtube.com/watch?v=_zA8aImw-9Y&t=55s)
 
 Anthropic: [Introducing Claude Opus 4.6](https://www.anthropic.com/news/claude-opus-4-6)
