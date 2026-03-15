@@ -104,6 +104,121 @@ print(tokenizer.decode(output[0], skip_special_tokens=True))
 
 > I enjoy walking with my dog. I love to play with my dog. I love to play with my dog. I love to play with my dog. I love to play with my dog. I love to play with my dog.
 
+## Section 2: Working with Transformers in Hugging Face
+
+#### 6. Tokenizer Fundamentals
+
+In previous sections, we briefly touched on how to use **models** in transfromers library.
+
+In this section, we will have a closer look at **Tokenizer**.
+
+###### Using Pretrained Model
+
+Hugging Face: [Model Card](https://huggingface.co/sshleifer/distilbart-cnn-12-6)
+
+`Tokenizer`, by **itself**, will take in some **text** and output **token IDs**.
+
+```python
+from transformers import AutoTokenizer
+
+# Load the tokenizer for the distilbart-cnn-12-6 model
+tokenizer = AutoTokenizer.from_pretrained("sshleifer/distilbart-cnn-12-6")
+
+raw_input = [
+    "I love deep learning!",
+    "I hate it so much!"
+]
+
+# Tokenize the input text
+inputs = tokenizer(raw_input, padding=True, truncation=True, return_tensors="pt")
+print(inputs)
+```
+
+Results:
+
+- **tensors** representing two sentences in raw_input, and **attention_mask** will be the output
+- `attention mask` tells the model which **token** to pay attention to.
+  - `0` means do **NOT** pay attention to, because a **padding token** is added to the end of the first sentence's tokens (`1`)
+  - `padding token` does not have semantic meaning
+  - The token lists are expected to be **same size**
+- `0` means the beginning of sentence, and `2` means the end of sentence
+
+> {'input_ids': tensor([[0,  100,  657, 1844, 2239,  328,    2,    1],        [   0,  100, 4157,   24,   98,  203,  328,    2]]), 'attention_mask': tensor([[1, 1, 1, 1, 1, 1, 1, 0],        [1, 1, 1, 1, 1, 1, 1, 1]])}
+
+###### A Closer Look at Tokenized Sentences
+
+```python
+print("Tokenizer output for 'I love deep learning!':")
+print(f"Input IDs: {inputs['input_ids'][0]}")
+print(f"Attention Mask: {inputs['attention_mask'][0]}")
+print("-"*100)
+print("Tokenizer output for 'I hate it so much!':")
+print(f"Input IDs: {inputs['input_ids'][1]}")
+print(f"Attention Mask: {inputs['attention_mask'][1]}")
+print("-"*100)
+
+# Tokenize the first sentence along
+tokenizer("I love deep learning!", return_tensors="pt")
+```
+
+Results:
+
+We will see there is no `1`, which is padding token here in the tensor. And attention mask will be all `1`.
+
+```
+Tokenizer output for 'I love deep learning!':
+Input IDs: tensor([   0,  100,  657, 1844, 2239,  328,    2,    1])
+Attention Mask: tensor([1, 1, 1, 1, 1, 1, 1, 0])
+----------------------------------------------------------------------------------------------------
+Tokenizer output for 'I hate it so much!':
+Input IDs: tensor([   0,  100, 4157,   24,   98,  203,  328,    2])
+Attention Mask: tensor([1, 1, 1, 1, 1, 1, 1, 1])
+----------------------------------------------------------------------------------------------------{'input_ids': tensor([[   0,  100,  657, 1844, 2239,  328,    2]]), 'attention_mask': tensor([[1, 1, 1, 1, 1, 1, 1]])}
+```
+
+###### Tokenizers Under the Hood
+
+```python
+# Tokenize the input text into tokens -> list of strings
+tokens = tokenizer.tokenize("I love deep learning!")
+print(f"Tokens: {tokens}")
+
+# Convert tokens to token IDs -> list of integers
+token_ids = tokenizer.convert_tokens_to_ids(tokens)
+print(f"Token IDs: {token_ids}")
+
+# Convert token IDs back to tokens -> list of strings
+tokens_from_ids = tokenizer.convert_ids_to_tokens(token_ids)
+print(f"Tokens from IDs: {tokens_from_ids}")
+
+# Decode token IDs back to text -> string
+decoded_tokens = tokenizer.decode(token_ids)
+print(f"Decoded Tokens: {decoded_tokens}")
+
+# Decode special tokens (e.g., [CLS], [SEP], [PAD]) back to text
+decoded_special_tokens = tokenizer.convert_ids_to_tokens([0, 1, 2])
+print(f"Decoded Special Tokens: {decoded_special_tokens}")
+```
+
+Results
+
+- Here, the tokens' IDs are the same as previous ones ([ 0, 100, 657, 1844, 2239, 328, 2, 1])
+- Except, there is no `0` for begining of sentence, and `2` for the end of sentence
+- Also, because this sentence is tokenized alone, so no padding token `1` is added.
+- `Ġ` means space in front of a token
+
+> Tokens: ['I', 'Ġlove', 'Ġdeep', 'Ġlearning', '!']
+>
+> Token IDs: [100, 657, 1844, 2239, 328]
+>
+> Tokens from IDs: ['I', 'Ġlove', 'Ġdeep', 'Ġlearning', '!']
+>
+> Decoded Tokens: I love deep learning!
+>
+> Decoded Special Tokens: ['\<s>', '<pad>', '</s>']
+
 ###### Reference
 
 Udemy: [Learn Hugging Face for Mastering Generative AI with LLMs](https://www.udemy.com/course/mastering-generative-ai-with-llms-a-hugging-face-guide/#overview)
+
+Hugging Face: [LLM Course](https://huggingface.co/learn/llm-course/chapter0/1)
