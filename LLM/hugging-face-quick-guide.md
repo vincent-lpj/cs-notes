@@ -217,6 +217,138 @@ Results
 >
 > Decoded Special Tokens: ['\<s>', '<pad>', '</s>']
 
+#### 7. Working with Models in Transformers
+
+In last section, we use `AutoTokenizer` to load a **pre-trained** tokenizer and convert sentences to token ids on our own.
+
+###### Pipeline
+
+`Pipeline` in transformers library could streamline all the functionality we just saw, it can definely simplifies the process we use models.
+
+- `Pipeline` is smart enough to load a default model for us, as long as we identify the task name
+  - sentiment-analysis
+  - text-generation
+  - etc.
+- `Pipeline` can handle both list of strings, or string alone
+
+```python
+from transformers import pipeline
+
+# A default model will be selected when not explicitly passing a model's name
+classifier = pipeline("sentiment-analysis")
+classifier(
+    ["I love deeplearning!",
+     "I hate it so much!"]
+)
+
+# In the case of text generation models, pipeline will default to GPT-2 Model
+text_generator = pipeline("text-generation")
+
+text_generator(
+    ["I went to this store to buy",
+     "When two objects in space get close to each other"]
+)
+```
+
+> No model was supplied, defaulted to distilbert/distilbert-base-uncased-finetuned-sst-2-english and revision 714eb0f. Using a pipeline without specifying a model name and revision in production is not recommended.
+>
+> [{'label': 'POSITIVE', 'score': 0.9996706247329712}, {'label': 'NEGATIVE', 'score': 0.9995473027229309}]
+>
+> No model was supplied, defaulted to openai-community/gpt2 and revision 607a30d.
+> Using a pipeline without specifying a model name and revision in production is not recommended.
+>
+> [[{'generated_text': "I went to this store to buy a $10 bill and it was a little bit different than what I was expecting. It's kind of like the Starbucks you can buy for $20, ..."}],
+ [{'generated_text': "When two objects in space get close to each other, the two objects are actually merging, like a joint.\n\nHow might we know that this is true? In the first place, we must know that the two objects are merging, as their orbits are. In the second place, we must know..."}]]
+
+###### Access Model Directly
+
+It is necessary to know how to access model directly, if we would like to do some sort of inspection on tokenizer or model.
+
+- Accessing models directly makes us to have more control over it.
+- The model will not give us a nicely formatted result, as pipeline does
+
+```python
+# Accessing pre-trained model directly
+from transformers import AutoTokenizer, AutoModelForSequenceClassification
+
+tokenizer = AutoTokenizer.from_pretrained("distilbert/distilbert-base-uncased-finetuned-sst-2-english")
+model = AutoModelForSequenceClassification.from_pretrained("distilbert/distilbert-base-uncased-finetuned-sst-2-english")
+
+inputs = tokenizer("I love deep learning", return_tensors="pt")
+outputs = model(**inputs)
+print(outputs)
+```
+
+> SequenceClassifierOutput(loss=None, logits=tensor([[-4.1975,  4.4937]], grad_fn=\<AddmmBackward0>), hidden_states=None, attentions=None)
+
+###### Get Model Embeddings
+
+`AutoModel` is used when you want the model's hidden representations, not the final classification result.
+
+- `last_hidden_state` is the contextualized embedding of each token after passing through all Transformer layers.
+
+- Its shape is `[batch_size, sequence_length, hidden_size]`, so each token gets one vector.
+
+- When we average over the token dimension, we turn all token vectors into one sentence vector.
+
+```python
+from transformers import AutoModel
+
+tokenizer = AutoTokenizer.from_pretrained("distilbert/distilbert-base-uncased-finetuned-sst-2-english")
+model = AutoModel.from_pretrained("distilbert/distilbert-base-uncased-finetuned-sst-2-english")
+
+inputs = tokenizer("I love deep learning", padding=True, truncation=True, return_tensors="pt")
+outputs = model(**inputs)
+
+# 1 sentences
+# 7 tokens in total
+# 768 dimensions for each token
+print(outputs.last_hidden_state.shape) # the token embedding
+
+# To get the full context vector for the sequence
+# By simply averaging the 7 tokens
+# Converts 7 vectors to 1 vector
+context_vectors = outputs.last_hidden_state.mean(dim=1)
+context_vectors.shape
+```
+
+> DistilBertModel LOAD REPORT from: distilbert/distilbert-base-uncased-finetuned-sst-2-english
+>
+> torch.Size([1, 6, 768])
+>
+> torch.Size([1, 768])
+
+#### 8. Creating Our Own Dataset in Hugging Face
+
+Hugging Face: [Datasets](https://huggingface.co/docs/datasets/index)
+
+In this section, we are going to learn how to work with dataset using Hugging Face.
+
+## Section 3: Training & Fine-Tuning LLMs from Hugging Face
+
+#### 10. Instruction Fine-Tuning & PEFT
+
+We have worked with some **pre-trained** models in previous sectioons, these models are trained on general texts and probably does not perform well on our data set.
+
+**Fine-tuning** is the process of training your original model to perform better at **a specific task** or multiple tasks.
+
+- You simply need to train it on a dataset of example (prompt, completion) pairs that show the model how you want it to respond to various prompts.
+- **Full Parameter Fine Tuning** is when you update all of the model parameters during training. This can lead to **catastrophic forgetting**, meaning the model learns to do some specific tasks but forget to do everything else.
+  - The cause is that knowledge that a model learnt is stored in parameters
+  - The knowledge can be lost as parameters shifts and be updated in a different direction
+- **Parameter Efficient Fine Tuning** solves this catastrophic forgetting problem by only updating a **small portion of weights** duing fine-tuning
+
+###### Parameter Efficient Fine-Tuning
+
+**Parameter Efficient Fine Tuning** (PEFT) aims to solve the catastrophic forgetting problem by **freezing** most of the model weights and only update a small portion.
+
+- Usually a new layer is built upon the original model, and only weights in this new layer would be updated
+- **LoRA**, Low Rank Adaptation of Large Language Models, is the frequently referenced technique in PEFT
+
+#### 12. Training Our Summerarization Model Using PEFT
+
+PEFT: [State-of-the-art Parameter-Efficient Fine-Tuning](https://github.com/huggingface/peft)
+
 ###### Reference
 
 Udemy: [Learn Hugging Face for Mastering Generative AI with LLMs](https://www.udemy.com/course/mastering-generative-ai-with-llms-a-hugging-face-guide/#overview)
