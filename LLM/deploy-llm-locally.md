@@ -1,28 +1,22 @@
-###### Reference
-
-[Local LLM via Ollama & LM Studio - The Practice Guide](https://www.udemy.com/course/running-open-llms-locally-practical-guide/)
-
-[Ollama](https://ollama.com/)
-
-[LM Studio](https://lmstudio.ai/)
-
 ## 1. Introduction
 
 #### 1. Welcome To The Course
 
-This course's object is to run Open AI models in your local computer.
+This course's object is to
 
-Hardware requirement
+1. Run Open AI models in your **local** computer.
 
-How to leverage LM Studio and Ollama
+2. Hardware requirement
+
+3. How to leverage LM Studio and **Ollama**
 
 #### 2. What Exactly are Open LLMs?
 
 ###### Which Part of LLM is Open?
 
-Training algorithm / Code ---> Model Weights / Parameters
+**NOT** Training algorithm / Code ---> **BUT** Model Weights / Parameters
 
-An open Large Language Model is a LLM whose weight (parameters) are publically released under a specific license.
+Nowadays, an so-called `open Large Language Model` is usually a LLM whose **weight (parameters)** are publically released under a specific license.
 
 ###### Understanding Models Parameters & Sizes
 
@@ -32,17 +26,19 @@ User's `Input Prompt` is deconstructed into `tokens` (token IDs), and then, then
 
 #### 3. Why Would You Want to Run Open LLMs Locally?
 
-In this course, we will learn hardware requirements.
+In this section, we will learn hardware requirements when running LLMs locally.
 
-Open vs Proprietary LLMs?
+###### Open vs. Proprietary LLMs
 
-https://arena.ai/zh/leaderboard
+Arena: [Leaderboard](https://arena.ai/zh/leaderboard)
+
+See how leading AI models stack up across text, image, vision, and more. This page provides a high-level snapshot of each Arena.
 
 Open LLM
 
 - Free to use
 - 100% privacy, can be run locally or on your servers
-- No vender lock-in, full control
+  - No vender lock-in, **full control**
 - Offline-first, low/no latency
 
 Proprietary LLMs
@@ -66,57 +62,74 @@ Proprietary LLMs
 
 [Hugging Face](https://huggingface.co/) is the defecto place to go, when you would like to get a general overview of avaiable models and find new models.
 
-There is also a [catalog](https://huggingface.co/models) of models.
+In Hugging Face, there is also a [catalog](https://huggingface.co/models) of models.
 
-Click model card to know more about Open LLMs,
+Click **model card** to know more about Open LLMs.
 
 #### 6. Running LLMs Locally - Available Options
 
 - [Llama.cpp](https://github.com/ggml-org/llama.cpp)
   - The following two solutions are wrappers of Llama.cpp
-  - Very low level solution
+  - Very **low-level** solution
 - LM Studio
-  - User-friendly GUI
+  - User-friendly **GUI**
   - No technical expertise required
 - Ollama
-  - User-friendly CLI
+  - User-friendly **CLI**
+  - Recently, GUI has been added to Ollama
   - Only techinical expertise required
 
 #### 7. Check the Model Licenses!
 
 For example, [Gemma](https://ai.google.dev/gemma/terms) license here.
 
-MIT/Apache 2.0: very permissive license, allow private & commercial use without permission
+###### Common License
 
-Llama: somewhat permissive license, allow private & commercial use with limitations
+- `MIT/Apache 2.0`: very **permissive** license, allow **private & commercial use** without permission
 
-Gemma: somewhat permissive license, allow private & commercial use with special requirements
+- `Llama`: somewhat permissive license, allow private & commercial use with limitations
+
+- `Gemma`: somewhat permissive license, allow private & commercial use with special requirements
 
 ## 2. Understanding Hardware Requirements & Quantizetion
 
 #### 10. Module Introduction
 
-Hardware Requirements & Quantization
+###### Hardware Requirements & Quantization
 
-In this section, we will get to know why model parameters (sizes) matter, what hardware is required for running LLMs, and how quantization help us lower this requirement without largely influence its performance.
+In this section, we will get to know why model **parameters (sizes)** matter, what hardware is required for running LLMs, and how **quantization** help us lower this requirement without largely influence its performance.
 
 #### 11. LLM Hardware Requirements - First Step
 
-This process,
+The process of:
 
-Input Prompt -> Trained Model -> Output Response
+> Input Prompt -> Trained Model -> Output Response
 
 where LLM is used to generate output, is called **inference**.
 
 This inference process, musted be **hosted** somewhere, it can be hosted in your local machine.
 
-Model should be **executed by GPU (or CPU)**, and **loaded into VRAM (or RAM)** .
+- Model should be **executed by GPU (or CPU)**, and **loaded into VRAM (or RAM)** .
 
-You should load the entire parameters and context window into memory during LLM execution.
+- You should load the entire parameters and context window into **memory** during LLM execution.
 
 #### 12. Deriving Hardware Requirements From Model Parameters
 
+###### Tokenizer
+
 This [Online Tokenizer](https://tiktokenizer.vercel.app/) show how user's input prompt is transformed into tokens.
+
+For example, using a gpt-2 tokenizer:
+
+Prompt: Hi, I am an AI Assistant
+
+> Token count
+>
+> 7
+>
+> 17250, 11, 314, 716, 281, 9552, 15286
+
+###### Model Parameters
 
 When loading a LLM, we load all the weights (parameters) into VRAM (or RAM).
 
@@ -126,21 +139,45 @@ So, a 2bn model takes up 4~8 GB of memory.
 
 #### 13. Quantization To The Rescue!
 
-The technique of Quantization helps us running bigger models on personal machines, by reducing memory requirements.
+The technique of **Quantization** helps us running bigger models on personal machines, by reducing memory requirements.
 
-Basically, we run quantized model in our local machine and rent servers.
+Basically, we run quantized model in our **local machine** and rent servers.
 
-In quantized models, parameter values have been transformed from **float16/32 to Int4/8**.
+- In quantized models, parameter values have been transformed from **float16/32 to Int4/8**.
 
-Model shared on Hugging Face, and run in LM Studio and Ollama, are available as quantized versions.
+- Model shared on Hugging Face, and run in LM Studio and Ollama, are available as quantized versions.
 
-For example, in the Model Tree for google/gemma-3-27b-it, we can find different quantization versions of this model.
+###### Model tree for google/gemma-3-27b-it
 
-GGUF files.
+For example, in Hugging Face, the Model Tree for `google/gemma-3-27b-it`, we can find different quantization versions of this model.
+
+> Base model
+>
+> [google/gemma-3-27b-pt](https://huggingface.co/google/gemma-3-27b-pt)
+>
+> Finetuned
+>
+> ([71](https://huggingface.co/models?other=base_model:finetune:google/gemma-3-27b-pt)) -this model
+>
+> Adapters
+>
+> [211 models](https://huggingface.co/models?other=base_model:adapter:google/gemma-3-27b-it)
+>
+> Finetunes
+>
+> [405 models](https://huggingface.co/models?other=base_model:finetune:google/gemma-3-27b-it)
+>
+> Merges
+>
+> [5 models](https://huggingface.co/models?other=base_model:merge:google/gemma-3-27b-it)
+>
+> Quantizations
+>
+> [122 models](https://huggingface.co/models?other=base_model:quantized:google/gemma-3-27b-it)
 
 #### 14. Does It Run On Your Machine?
 
-Preferably, you should have GPU and VRAM, but CPU and RAM will also work.
+Preferably, you should have **GPU** and VRAM, but CPU and RAM will also work.
 
 Hugging Face, as well as LM studio can help you find out if a model is suitable for your local machine.
 
@@ -481,7 +518,7 @@ However, we have another tool, a more advanced solution, that does not come with
 
 We will explore [Ollama](https://ollama.com/) in this section.
 
-One of the advantages of Ollama, is that it give you a lot of `options` to customize your LLMs.
+One of the advantages of Ollama, is that it give you a lot of **options** to customize your LLMs.
 
 #### 40. Install & Starting Ollama
 
@@ -893,3 +930,11 @@ you can communicate with ollama OpenAI compatible API using OpenAI sdk.
 #### 58. Roundup
 
 Congragulation! You have learnt how to run LLMs, in your computer.
+
+## Reference
+
+[Local LLM via Ollama & LM Studio - The Practice Guide](https://www.udemy.com/course/running-open-llms-locally-practical-guide/)
+
+[Ollama](https://ollama.com/)
+
+[LM Studio](https://lmstudio.ai/)
