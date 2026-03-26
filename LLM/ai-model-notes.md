@@ -489,6 +489,106 @@ In our example, data is structured similiar to `(anchor, positive, negative) tri
 
 ## LLM Related Topics
 
+#### BERT
+
+###### What is A Language Model?
+
+A language model is a probabilistic model that assign probabilities to sequences of words.
+
+In practice, a language model allows us to compute the following probability:
+
+> P['China'|'Shanghai is a city in']
+
+Where: 'China' is the **next token**, 'Shanghai is a city in' is **prompt**.
+
+LLM calculate the PDF of token dictionary when givn the prompt above, and find that 'China' token has the maximum probability.
+
+We usually train a neural network to predict these probabilities. A neural network trained on a large corpora of text is known as a Large Language Model.
+
+###### Overview of BERT
+
+Bidirectional Encoder Representations from Transformers (BERT)
+
+The BERT paper is published by Google.
+
+[BERT: Pre-training of Deep Bidirectional Transformers for Language Understanding](https://aclanthology.org/N19-1423/)
+
+Before BERT, context flows from one direction or two directions independently.
+
+In BERT, token's context will consider both directions. For example, if we would like to find the embeddings of a certain word, BERT will consider the context **ahead of** the word, and the context **behind** the word.
+
+BERT enables two things:
+
+- MLM: mask language modeling
+  - A full sentence is given, and one word inside is masked.
+- NSP: next sentence prediction
+  - Two sentences, to decide if two sentences are connected together
+
+###### Context
+
+Bidirectional models are great in this.
+
+> ... **right** ...
+>
+> .. they were on the **right** ...
+>
+> ... they were on the **right** side of the street ... -> direction
+>
+> ... they were on the **right** side of history... -> correctness
+
+###### Multi-Mask Language Modeling (MLM)
+
+... on the ** side ** history ... -> Model -> "right", "of"
+
+###### Next Sentence Prediction (NSP)
+
+Sentence "A" -> Sentence "B"
+
+###### BERT Paper Terminology Understanding
+
+[CLS] is a special symbol added in front of every input example.
+
+[SEP] is a special separator token (e.g. between question/answer pairs)
+
+| Input              | [CLS] | my   | dog   | is   | cute   | [SEP] | he   | likes   | play   | ##ing    | [SEP] |
+| ------------------ | ----- | ---- | ----- | ---- | ------ | ----- | ---- | ------- | ------ | -------- | ----- |
+| Token Embedding    | E_CLS | E_my | E_dog | E_is | E_cute | E_SEP | E_he | E_likes | E_play | E\_##ing | E_SEP |
+| Segment Embedding  | E_A   | E_A  | E_A   | E_A  | E_A    | E_A   | E_B  | E_B     | E_B    | E_B      | E_B   |
+| Position Embedding | E_0   | E_1  | E_2   | E_3  | E_4    | E_5   | E_6  | E_7     | E_8    | E_9      | E_10  |
+
+Note:
+
+- ##ing is postfix, which is tokenized by WordPiece embedding
+- The segment embedding for tokens in first sentence will be the same (E_A)
+- All three embeddings will be used and calculate final embeddings at the very end.
+
+BERT Base: L=12, H=768, A=12, Total Parameters=110M
+
+- 12 encoder layers, model embedding size of 768, 12 attention heads
+
+BERT Large: L=24, H=1024, A=16, Total Parameters=340M
+
+Pre-training BERT:
+
+For the pre-training corpus, they use BooksCorpus (800M words). And English Wikipedia (2500M words).
+
+WordPiece embedding:
+
+Tasks:
+
+1. MLM (masked LM): [MASK] token is used to replace "masked" words.
+2. NSP (next sentence prediction):
+
+###### Going Deeper into BERT
+
+The original Transformer architecture consists of an encoder and a decoder.
+
+BERT uses an encoder-only architecture, while GPT uses a decoder-only architecture.
+
+The output layer of BERT depends on the specific task. For classification tasks, BERT usually uses a task-specific classification head, typically a **linear layer** followed by **softmax**.
+
+> Inputs -> Input Embedding -> Positional Embedding -> N\*Encoder layers -> linear -> softmax -> output probability
+
 #### Thinking Models
 
 Thinking models, or reasoning models have got a lot of attentions these days.
